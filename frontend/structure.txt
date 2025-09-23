@@ -1,0 +1,141 @@
+Folder PATH listing for volume OS
+Volume serial number is 900D-7C20
+C:.
+|   .gitignore
+|   create-test-data.js
+|   debug-growth-rate.js
+|   eslint.config.js
+|   index.html
+|   notification-test.html
+|   NOTIFICATION_TEST_GUIDE.md
+|   package-lock.json
+|   package.json
+|   README.md
+|   structure.txt
+|   test-comprehensive.js
+|   test-notifications.html
+|   TESTING_REPORT.md
+|   vercel.json
+|   vite.config.js
+|   
++---dist
+|   |   index.html
+|   |   vite.svg
+|   |   
+|   \---assets
+|           admin-4VXhSdFG.js
+|           admin-BQowG2Q_.css
+|           animations-B1KvGFlt.js
+|           Auth-DaSc6DDs.js
+|           CustomerSupport-Dpacf4Nf.js
+|           Home-CtWCr5zk.js
+|           hotels-BfGOivR1.js
+|           hotels-tJ247d-j.css
+|           index-CL4nlzMM.js
+|           index-DlkdIekk.css
+|           react-BI3NJeJA.js
+|           router-D2Q0Sxoe.js
+|           ui-B9JU2bGL.js
+|           user-DVYpH4yL.js
+|           
++---node_modules
+|   +---@esbuild
+|   |   \---win32-x64
+|   |           esbuild.exe
+|   |           
+|   \---@rollup
+|       \---rollup-win32-x64-msvc
+|               rollup.win32-x64-msvc.node
+|               
++---public
+|       vite.svg
+|       
+\---src
+    |   App.jsx
+    |   main.jsx
+    |   test-holidays.js
+    |   
+    +---assets
+    |       react.svg
+    |       
+    +---components
+    |       AdminPanel.jsx
+    |       ConfirmationModal.jsx
+    |       CustomCalendar.css
+    |       CustomCalendar.jsx
+    |       CustomDropdown.jsx
+    |       EditReviewModal.jsx
+    |       Footer.jsx
+    |       HotelCard.jsx
+    |       HotelSearchFilters.jsx
+    |       Navbar.jsx
+    |       NotificationBell.css
+    |       NotificationBell.jsx
+    |       NotificationDebug.jsx
+    |       NotificationTest.jsx
+    |       NotificationTestHelper.jsx
+    |       RecentlyViewed.jsx
+    |       ReviewForm.jsx
+    |       SearchBar.jsx
+    |       ToastContext.js
+    |       ToastProvider.jsx
+    |       UserStatusBanner.css
+    |       UserStatusBanner.jsx
+    |       useToast.js
+    |       
+    +---data
+    |       hotels.js
+    |       
+    +---hooks
+    |       useSEO.js
+    |       
+    +---pages
+    |       AdminDashboard.css
+    |       AdminDashboard.jsx
+    |       AdminLogin.css
+    |       AdminLogin.jsx
+    |       Auth.jsx
+    |       Bookings.jsx
+    |       CustomerSupport.jsx
+    |       Home.jsx
+    |       HotelDetails.css
+    |       HotelDetails.jsx
+    |       Hotels.jsx
+    |       Notifications.jsx
+    |       UserProfile.jsx
+    |       
+    +---services
+    |       apiClient.js
+    |       googleAuth.js
+    |       reviews.js
+    |       storage.js
+    |       
+    +---styles
+    |       main.css
+    |       sliders.css
+    |       
+    +---test
+    |       setupTests.js
+    |       
+    \---utils
+        |   auth.js
+        |   bigdatacloud.js
+        |   bookings.js
+        |   bookingState.js
+        |   currency.js
+        |   dataCleanup.js
+        |   geo.js
+        |   holidays.js
+        |   notifications.js
+        |   pricing.js
+        |   reviews.js
+        |   sampleData.js
+        |   sampleReviews.js
+        |   security.js
+        |   storage.js
+        |   validation.js
+        |   
+        \---__tests__
+                pricing.test.js
+                validation.test.js
+                

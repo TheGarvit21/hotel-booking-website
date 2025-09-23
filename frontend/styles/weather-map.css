@@ -1,0 +1,145 @@
+/* Weather modal overlay */
+.weather-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(20, 22, 34, 0.65);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: weather-fadein 0.3s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* Weather modal card */
+.weather-modal-card {
+    background: #23243a;
+    border-radius: 18px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);
+    border: 1.5px solid #ffd16644;
+    padding: 2.2rem 2.5rem 1.5rem 2.5rem;
+    min-width: 320px;
+    max-width: 370px;
+    color: #fff;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: weather-fadein 0.4s cubic-bezier(.4, 0, .2, 1);
+}
+
+.weather-modal-close {
+    position: absolute;
+    top: 1.1rem;
+    right: 1.3rem;
+    background: none;
+    border: none;
+    color: #ffd166;
+    font-size: 2rem;
+    font-weight: 700;
+    cursor: pointer;
+    z-index: 10;
+    transition: color 0.15s;
+}
+
+.weather-modal-close:hover {
+    color: #fffbe6;
+}
+
+/* Modern WeatherMap styles with glassmorphism and animation */
+/* Minimal weather card */
+.weather-map-minimal {
+    background: rgba(30, 32, 48, 0.85);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px 0 rgba(31, 38, 135, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1rem 1.3rem 0.8rem 1.3rem;
+    color: #fff;
+    display: inline-block;
+    min-width: 220px;
+    max-width: 340px;
+    font-size: 1rem;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    animation: weather-fadein 0.5s cubic-bezier(.4, 0, .2, 1);
+}
+
+
+
+
+/* Minimal toggle button style (optional, can be further customized) */
+.weather-toggle-btn-minimal {
+    background: none;
+    border: none;
+    color: #ffd166;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.2rem 0.7rem;
+    border-radius: 6px;
+    font-weight: 600;
+    outline: none;
+    transition: background 0.15s;
+}
+
+.weather-toggle-btn-minimal:hover,
+.weather-toggle-btn-minimal:focus {
+    background: rgba(255, 209, 102, 0.08);
+}
+
+/* Old h4 style kept for fallback */
+.weather-map h4 {
+    color: #ffd166;
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 1.2rem;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+.weather-main {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    margin-bottom: 0.7rem;
+}
+
+.weather-main img {
+    filter: drop-shadow(0 2px 8px #0008);
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    padding: 0.3rem;
+}
+
+.weather-main strong {
+    font-size: 2.2rem;
+    color: #ffd166;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.weather-details {
+    font-size: 1rem;
+    color: #bdbdbd;
+    margin-top: 0.5rem;
+    text-align: center;
+}
+
+.weather-map.error {
+    color: #ff6b6b;
+    background: rgba(40, 0, 0, 0.5);
+    border: 1px solid #ff6b6b;
+}
+
+@keyframes weather-fadein {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

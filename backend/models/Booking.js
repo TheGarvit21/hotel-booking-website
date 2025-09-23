@@ -1,0 +1,149 @@
+const mongoose = require('mongoose');
+
+const bookingSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  hotel: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Hotel',
+    required: true
+  },
+  checkIn: {
+    type: Date,
+    required: true
+  },
+  checkOut: {
+    type: Date,
+    required: true
+  },
+  guests: {
+    adults: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: 1
+    },
+    children: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  },
+  rooms: {
+    type: Number,
+    required: true,
+    min: 1,
+    default: 1
+  },
+  roomType: {
+    type: String,
+    required: true,
+    enum: ['standard', 'deluxe', 'suite', 'presidential']
+  },
+  totalPrice: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  currency: {
+    type: String,
+    default: 'INR',
+    enum: ['USD', 'EUR', 'GBP', 'INR']
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
+    default: 'pending'
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'failed', 'refunded'],
+    default: 'pending'
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['credit_card', 'debit_card', 'net_banking', 'upi', 'wallet', 'cash'],
+    default: 'credit_card'
+  },
+  specialRequests: {
+    type: String,
+    maxlength: 500
+  },
+  contactInfo: {
+    name: {
+      type: String,
+      required: true
+    },
+    email: {
+      type: String,
+      required: true
+    },
+    phone: {
+      type: String,
+      required: true
+    }
+  },
+  bookingDate: {
+    type: Date,
+    default: Date.now
+  },
+  confirmationNumber: {
+    type: String,
+    unique: true,
+    required: true
+  },
+  cancellationPolicy: {
+    type: String,
+    default: 'Free cancellation up to 24 hours before check-in'
+  },
+  notes: {
+    type: String,
+    maxlength: 1000
+  }
+}, {
+  timestamps: true
+});
+
+// Generate confirmation number before saving
+bookingSchema.pre('save', async function(next) {
+  if (this.isNew) {
+    const count = await mongoose.model('Booking').countDocuments();
+    this.confirmationNumber = `BK${Date.now().toString().slice(-8)}${(count + 1).toString().padStart(3, '0')}`;
+  }
+  next();
+});
+
+// Validate check-out is after check-in
+bookingSchema.pre('save', function(next) {
+  if (this.checkOut <= this.checkIn) {
+    next(new Error('Check-out date must be after check-in date'));
+  } else {
+    next();
+  }
+});
+
+// Index
+bookingSchema.index({ user: 1, bookingDate: -1 });
+bookingSchema.index({ hotel: 1, checkIn: 1, checkOut: 1 });
+bookingSchema.index({ status: 1 });
+bookingSchema.index({ confirmationNumber: 1 });
+
+// Virtual for calculating number of nights
+bookingSchema.virtual('nights').get(function() {
+  const diffTime = Math.abs(this.checkOut - this.checkIn);
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+});
+
+// Virtual for calculating price per night
+bookingSchema.virtual('pricePerNight').get(function() {
+  return this.nights > 0 ? this.totalPrice / this.nights : 0;
+});
+
+// Ensure virtual fields are serialized
+bookingSchema.set('toJSON', { virtuals: true });
+bookingSchema.set('toObject', { virtuals: true });
+
+module.exports = mongoose.model('Booking', bookingSchema);

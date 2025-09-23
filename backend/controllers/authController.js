@@ -1,0 +1,313 @@
+const User = require('../models/User');
+const { generateToken } = require('../utils/jwt');
+
+// User registration
+const register = async (req, res) => {
+  try {
+    const { name, email, password, phone } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({
+        error: { message: 'User with this email already exists' }
+      });
+    }
+
+    // Create new user
+    const user = new User({
+      name,
+      email,
+      password,
+      phone
+    });
+
+    await user.save();
+
+    // Generate tokens
+    const { accessToken, refreshToken } = generateToken(user._id, user.role);
+
+    // Return user data and tokens
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        user: user.toSafeObject(),
+        tokens: {
+          accessToken,
+          refreshToken
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        error: { message: messages.join(', ') }
+      });
+    }
+
+    res.status(500).json({
+      error: { message: 'Registration failed' }
+    });
+  }
+};
+
+// User login
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Find user and include password for comparison
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    
+    if (!user) {
+      return res.status(401).json({
+        error: { message: 'Invalid email or password' }
+      });
+    }
+
+    // Check if user is banned
+    if (user.status === 'banned') {
+      return res.status(403).json({
+        error: { message: 'Account has been banned. Please contact support.' }
+      });
+    }
+
+    // Check if user is inactive
+    if (user.status === 'inactive') {
+      return res.status(403).json({
+        error: { message: 'Account is inactive. Please contact support.' }
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        error: { message: 'Invalid email or password' }
+      });
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Generate tokens
+    const { accessToken, refreshToken } = generateToken(user._id, user.role);
+
+    // Return user data and tokens
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        user: user.toSafeObject(),
+        tokens: {
+          accessToken,
+          refreshToken
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      error: { message: 'Login failed' }
+    });
+  }
+};
+
+// Refresh token
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken: token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        error: { message: 'Refresh token is required' }
+      });
+    }
+
+    // Verify refresh token
+    const { verifyToken } = require('../utils/jwt');
+    const decoded = verifyToken(token);
+
+    if (!decoded) {
+      return res.status(401).json({
+        error: { message: 'Invalid or expired refresh token' }
+      });
+    }
+
+    // Check if user still exists and is active
+    const user = await User.findById(decoded.userId);
+    if (!user || user.status !== 'active') {
+      return res.status(401).json({
+        error: { message: 'User not found or inactive' }
+      });
+    }
+
+    // Generate new tokens
+    const { accessToken, refreshToken: newRefreshToken } = generateToken(user._id, user.role);
+
+    res.json({
+      success: true,
+      message: 'Token refreshed successfully',
+      data: {
+        tokens: {
+          accessToken,
+          refreshToken: newRefreshToken
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(500).json({
+      error: { message: 'Token refresh failed' }
+    });
+  }
+};
+
+// Logout (client-side token removal, but we can track here if needed)
+const logout = async (req, res) => {
+  try {
+    // In a more complex system, you might want to blacklist the token
+    // For now, we'll just return success and let the client handle token removal
+    
+    res.json({
+      success: true,
+      message: 'Logout successful'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      error: { message: 'Logout failed' }
+    });
+  }
+};
+
+// Get current user profile
+const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        error: { message: 'User not found' }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user: user.toSafeObject()
+      }
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({
+      error: { message: 'Failed to get profile' }
+    });
+  }
+};
+
+// Update user profile
+const updateProfile = async (req, res) => {
+  try {
+    const { name, phone, preferences } = req.body;
+    const updateData = {};
+
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (preferences !== undefined) updateData.preferences = preferences;
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        error: { message: 'User not found' }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        user: user.toSafeObject()
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        error: { message: messages.join(', ') }
+      });
+    }
+
+    res.status(500).json({
+      error: { message: 'Profile update failed' }
+    });
+  }
+};
+
+// Change password
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // Get user with password
+    const user = await User.findById(req.userId).select('+password');
+    
+    if (!user) {
+      return res.status(404).json({
+        error: { message: 'User not found' }
+      });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        error: { message: 'Current password is incorrect' }
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        error: { message: messages.join(', ') }
+      });
+    }
+
+    res.status(500).json({
+      error: { message: 'Password change failed' }
+    });
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  refreshToken,
+  logout,
+  getProfile,
+  updateProfile,
+  changePassword
+};
