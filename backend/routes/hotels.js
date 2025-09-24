@@ -43,11 +43,7 @@ const hotelValidation = [
   body('currency')
     .optional()
     .isIn(['USD', 'EUR', 'GBP', 'INR'])
-    .withMessage('Currency must be USD, EUR, GBP, or INR'),
-  body('description')
-    .trim()
-    .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be between 10 and 1000 characters')
+    .withMessage('Currency must be USD, EUR, GBP, or INR')
 ];
 
 // Public routes

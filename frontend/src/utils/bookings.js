@@ -1,3 +1,43 @@
+// --- Data migration: fix malformed bookings in localStorage ---
+export function migrateBookingsStorage() {
+  try {
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    let changed = false;
+    const fixed = bookings.map(b => {
+      let checkIn = typeof b.checkIn === 'string' ? b.checkIn : '';
+      let checkOut = typeof b.checkOut === 'string' ? b.checkOut : '';
+      if (!checkIn) checkIn = new Date().toISOString().slice(0, 10);
+      if (!checkOut) checkOut = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+      let guests = b.guests;
+      if (typeof guests === 'object' || guests == null) guests = 1;
+      let totalPrice = Number(b.totalPrice);
+      let basePrice = Number(b.basePrice);
+      let serviceFee = Number(b.serviceFee);
+      let taxes = Number(b.taxes);
+      if (!Number.isFinite(totalPrice)) totalPrice = 0;
+      if (!Number.isFinite(basePrice)) basePrice = 0;
+      if (!Number.isFinite(serviceFee)) serviceFee = 0;
+      if (!Number.isFinite(taxes)) taxes = 0;
+      return {
+        ...b,
+        checkIn,
+        checkOut,
+        guests,
+        totalPrice,
+        basePrice,
+        serviceFee,
+        taxes
+      };
+    });
+    if (JSON.stringify(bookings) !== JSON.stringify(fixed)) {
+      localStorage.setItem('bookings', JSON.stringify(fixed));
+      changed = true;
+    }
+    return changed;
+  } catch {
+    return false;
+  }
+}
 export const getBookings = (userId = null) => {
   try {
     // --- FETCH LOGIC (commented) ---
@@ -89,9 +129,37 @@ export const addBooking = (booking) => {
       throw error;
     }
     const bookings = getBookings();
+    // Validate and sanitize booking fields
+    let checkIn = typeof booking.checkIn === 'string' ? booking.checkIn : '';
+    let checkOut = typeof booking.checkOut === 'string' ? booking.checkOut : '';
+    if (!checkIn) checkIn = new Date().toISOString().slice(0, 10);
+    if (!checkOut) checkOut = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    let guests = booking.guests;
+    if (typeof guests === 'object' || guests == null) guests = 1;
+
+    // Always use backend hotel data for price and image
+    let hotelImage = booking.hotelImage;
+    let totalPrice = Number(booking.totalPrice);
+    let basePrice = Number(booking.basePrice);
+    let serviceFee = Number(booking.serviceFee);
+    let taxes = Number(booking.taxes);
+    // If missing, set to 0 (force backend to provide correct data)
+    if (!Number.isFinite(totalPrice)) totalPrice = 0;
+    if (!Number.isFinite(basePrice)) basePrice = 0;
+    if (!Number.isFinite(serviceFee)) serviceFee = 0;
+    if (!Number.isFinite(taxes)) taxes = 0;
+    if (!hotelImage) hotelImage = "";
     const newBooking = {
       id: Date.now().toString(),
       ...booking,
+      checkIn,
+      checkOut,
+      guests,
+      hotelImage,
+      totalPrice,
+      basePrice,
+      serviceFee,
+      taxes,
       bookingDate: new Date().toISOString(),
       status: 'confirmed'
     };

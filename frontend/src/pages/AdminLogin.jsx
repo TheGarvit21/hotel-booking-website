@@ -34,14 +34,14 @@ const AdminLogin = ({ onLogin }) => {
             console.log("[v0] Checking credentials...")
             console.log("[v0] Email:", formData.email)
             console.log("[v0] Password:", formData.password)
-            
+
             // Use backend authentication
             const result = await loginUser(formData.email, formData.password)
             console.log("[v0] Backend response:", result)
-            
+
             if (result.success) {
                 console.log("[v0] Login successful, user:", result.user)
-                
+
                 // Check if user is admin
                 if (result.user.role === 'admin') {
                     console.log("[v0] Admin user confirmed, calling onLogin")
@@ -114,9 +114,9 @@ const AdminLogin = ({ onLogin }) => {
                                 placeholder="Enter your email"
                                 required
                             />
-                            <label htmlFor="email" className="floating-label">
+                            {/* <label htmlFor="email" className="floating-label">
                                 Email Address
-                            </label>
+                            </label> */}
                         </div>
                     </div>
 
@@ -150,9 +150,9 @@ const AdminLogin = ({ onLogin }) => {
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" /><circle cx="12" cy="12" r="3" /></svg>
                                 )}
                             </span>
-                            <label htmlFor="password" className="floating-label">
+                            {/* <label htmlFor="password" className="floating-label">
                                 Password
-                            </label>
+                            </label> */}
                         </div>
                     </div>
 

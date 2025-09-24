@@ -27,15 +27,12 @@ const hotelSchema = new mongoose.Schema({
   },
   country: {
     type: String,
-    required: [true, 'Country is required'],
-    trim: true,
     default: 'India',
-    maxlength: [50, 'Country name cannot exceed 50 characters']
+    trim: true
   },
   landmark: {
     type: String,
-    trim: true,
-    maxlength: [100, 'Landmark cannot exceed 100 characters']
+    trim: true
   },
   rating: {
     type: Number,
@@ -51,15 +48,8 @@ const hotelSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    required: [true, 'Currency is required'],
-    enum: ['USD', 'EUR', 'GBP', 'INR'],
-    default: 'INR'
-  },
-  description: {
-    type: String,
-    required: [true, 'Description is required'],
-    trim: true,
-    maxlength: [1000, 'Description cannot exceed 1000 characters']
+    default: 'INR',
+    enum: ['USD', 'EUR', 'GBP', 'INR']
   },
   amenities: [{
     type: String,
@@ -73,10 +63,13 @@ const hotelSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  reviews: {
-    type: Number,
-    default: 0,
-    min: [0, 'Review count cannot be negative']
+  roomTypes: [{
+    type: mongoose.Schema.Types.Mixed
+  }],
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
   },
   available: {
     type: Boolean,
@@ -91,46 +84,9 @@ const hotelSchema = new mongoose.Schema({
     enum: ['Luxury', 'Premium', 'Comfort', 'Budget'],
     default: 'Comfort'
   },
-  status: {
-    type: String,
-    enum: ['active', 'inactive', 'maintenance'],
-    default: 'active'
-  },
-  roomTypes: [{
-    key: {
-      type: String,
-      required: true
-    },
-    name: {
-      type: String,
-      required: true
-    },
-    capacity: {
-      type: Number,
-      required: true,
-      min: 1
-    },
-    sizeSqm: {
-      type: Number,
-      required: true,
-      min: 10
-    },
-    basePrice: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    images: [{
-      type: String
-    }],
-    bathroom: [{
-      type: String
-    }]
-  }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null
+    ref: 'User'
   }
 }, {
   timestamps: true

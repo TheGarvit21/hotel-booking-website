@@ -27,7 +27,7 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: config.frontendUrl,
+  origin: [/^http:\/\/localhost:\d+$/],
   credentials: true
 }));
 

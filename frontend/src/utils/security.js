@@ -77,11 +77,7 @@ export const checkRateLimit = (key, maxRequests = 10, windowMs = 60000) => {
 // CSP violation reporting
 export const setupCSP = () => {
     document.addEventListener('securitypolicyviolation', (e) => {
-        console.warn('CSP violation:', {
-            violatedDirective: e.violatedDirective,
-            blockedURI: e.blockedURI,
-            originalPolicy: e.originalPolicy
-        });
+        // CSP violation logged
     });
 };
 

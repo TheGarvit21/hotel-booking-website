@@ -44,10 +44,7 @@ const bookingValidation = [
     .isEmail()
     .normalizeEmail()
     .withMessage('Valid contact email is required'),
-  body('contactInfo.phone')
-    .optional()
-    .isMobilePhone()
-    .withMessage('Valid phone number is required'),
+  // Removed phone validation: phone is now optional and not validated
   body('specialRequests')
     .optional()
     .isLength({ max: 500 })

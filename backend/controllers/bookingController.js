@@ -16,28 +16,20 @@ const getUserBookings = async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
-    // Build filter object
     const filter = { user: req.user.id };
-    
-    if (status !== 'all') {
-      filter.status = status;
-    }
+    if (status !== 'all') filter.status = status;
 
-    // Build sort object
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    // Calculate pagination
     const skip = (page - 1) * limit;
 
-    // Get bookings with hotel details
     const bookings = await Booking.find(filter)
       .populate('hotel', 'name location city rating images')
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Get total count for pagination
     const total = await Booking.countDocuments(filter);
 
     res.json({
@@ -51,7 +43,6 @@ const getUserBookings = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching user bookings:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching bookings',
@@ -65,7 +56,6 @@ const getUserBookings = async (req, res) => {
 // @access  Private
 const createBooking = async (req, res) => {
   try {
-    // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -87,7 +77,6 @@ const createBooking = async (req, res) => {
       paymentMethod
     } = req.body;
 
-    // Verify hotel exists
     const hotel = await Hotel.findById(hotelId);
     if (!hotel) {
       return res.status(404).json({
@@ -96,7 +85,6 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // Check if hotel is available
     if (!hotel.available) {
       return res.status(400).json({
         success: false,
@@ -104,48 +92,71 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // Calculate total price (simplified calculation)
     const nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
-    const basePrice = hotel.price || 0;
-    const totalPrice = basePrice * nights * rooms;
+    const nightly = hotel.price || 0;
+    const basePrice = nightly * nights * (rooms || 1);
+    const serviceFee = Math.round(basePrice * 0.10);
+    const taxes = Math.round(basePrice * 0.12);
+    const totalPrice = basePrice + serviceFee + taxes;
+    const hotelImage =
+      Array.isArray(hotel.images) && hotel.images.length > 0
+        ? hotel.images[0]
+        : hotel.image || '';
 
-    // Create booking
     const booking = new Booking({
       user: req.user.id,
       hotel: hotelId,
+      hotelImage,
       checkIn: new Date(checkIn),
       checkOut: new Date(checkOut),
       guests: {
-        adults: guests.adults || 1,
-        children: guests.children || 0
+        adults: guests?.adults || 1,
+        children: guests?.children || 0
       },
       rooms: rooms || 1,
       roomType: roomType || 'standard',
-      totalPrice: totalPrice,
+      basePrice,
+      serviceFee,
+      taxes,
+      totalPrice,
+      pricePerNight: nightly,
       currency: hotel.currency || 'INR',
-      status: 'pending',
+      status: 'confirmed',
       paymentStatus: 'pending',
       paymentMethod: paymentMethod || 'credit_card',
       specialRequests: specialRequests || '',
       contactInfo: {
-        name: contactInfo.name || req.user.name,
-        email: contactInfo.email || req.user.email,
-        phone: contactInfo.phone || ''
+        name: contactInfo?.name || req.user.name,
+        email: contactInfo?.email || req.user.email,
+        phone: contactInfo?.phone || ''
       }
     });
 
     await booking.save();
+    await booking.populate('hotel', 'name location city rating images price image');
 
-    // Populate hotel details for response
-    await booking.populate('hotel', 'name location city rating images');
+    let hotelImageResp = booking.hotelImage;
+    if (!hotelImageResp && booking.hotel?.images?.length > 0) {
+      hotelImageResp = booking.hotel.images[0];
+    } else if (!hotelImageResp && booking.hotel?.image) {
+      hotelImageResp = booking.hotel.image;
+    }
 
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
-      data: booking
+      data: {
+        ...booking.toObject(),
+        hotelImage: hotelImageResp,
+        price: booking.pricePerNight,
+        basePrice: booking.basePrice,
+        serviceFee: booking.serviceFee,
+        taxes: booking.taxes,
+        hotelName: hotel.name,
+        hotelLocation: hotel.location
+      }
     });
   } catch (error) {
-    console.error('Error creating booking:', error);
     res.status(500).json({
       success: false,
       message: 'Error creating booking',
@@ -153,6 +164,8 @@ const createBooking = async (req, res) => {
     });
   }
 };
+
+
 
 // @desc    Get booking by ID
 // @route   GET /api/bookings/:id
@@ -227,7 +240,7 @@ const updateBooking = async (req, res) => {
     // Only allow certain fields to be updated
     const allowedUpdates = ['specialRequests', 'contactInfo', 'paymentMethod'];
     const updates = {};
-    
+
     allowedUpdates.forEach(field => {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
@@ -333,7 +346,7 @@ const getAllBookings = async (req, res) => {
 
     // Build filter object
     const filter = {};
-    
+
     if (status !== 'all') {
       filter.status = status;
     }
@@ -363,10 +376,18 @@ const getAllBookings = async (req, res) => {
 
     // Get total count for pagination
     const total = await Booking.countDocuments(filter);
+    // Attach hotelName and hotelLocation for each booking
+    const bookingsWithHotelDetails = bookings.map(b => {
+      const obj = b.toObject();
+      obj.hotelName = b.hotel?.name || '';
+      obj.hotelLocation = b.hotel?.location || '';
+      obj.hotelImage = (b.hotel?.images && b.hotel.images.length > 0) ? b.hotel.images[0] : (b.hotel?.image || obj.hotelImage || '');
+      return obj;
+    });
 
     res.json({
       success: true,
-      data: bookings,
+      data: bookingsWithHotelDetails,
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
