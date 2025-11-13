@@ -66,6 +66,13 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
+userSchema.add({
+  refreshToken: {
+    type: String,
+    default: ''
+  }
+});
+
 // Index for better query performance
 userSchema.index({ status: 1 });
 userSchema.index({ role: 1 });

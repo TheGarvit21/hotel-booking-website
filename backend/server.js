@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimiter = require('./middlewares/rateLimiter');
 const config = require('./config/config');
+const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -21,13 +22,15 @@ app.use(rateLimiter);
 
 // CORS configuration
 app.use(cors({
-  origin: [/^http:\/\/localhost:\d+$/],
+  origin: [/^http:\/\/localhost:\d+$/, config.frontendUrl],
   credentials: true
 }));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.use(cookieParser());
 
 // MongoDB connection
 mongoose.connect(config.mongoUri)

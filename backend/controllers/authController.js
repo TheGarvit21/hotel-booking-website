@@ -1,6 +1,19 @@
 const User = require('../models/User');
-const { generateToken } = require('../utils/jwt');
+const { generateToken, verifyToken } = require('../utils/jwt');
 const mailer = require('../utils/mailer');
+const config = require('../config/config');
+
+const parseDurationToMs = (str) => {
+  try {
+    if (typeof str === 'string' && str.endsWith('d')) {
+      const days = parseInt(str.slice(0, -1), 10);
+      return days * 24 * 60 * 60 * 1000;
+    }
+    const n = parseInt(str, 10);
+    if (!isNaN(n)) return n * 1000;
+  } catch (e) {}
+  return undefined;
+};
 
 // User registration
 const register = async (req, res) => {
@@ -31,20 +44,32 @@ const register = async (req, res) => {
       html: `<p>Hi ${user.name},</p><p>Welcome to LuxStay. Your account has been created.</p>`
     }).catch(err => console.error('Mailer error:', err));
 
-    // Generate tokens
     const { accessToken, refreshToken } = generateToken(user._id, user.role);
 
-    // Return user data and tokens
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    const accessMs = parseDurationToMs(config.jwtExpiresIn);
+    const refreshMs = parseDurationToMs(config.jwtRefreshExpiresIn);
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: accessMs
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: refreshMs
+    });
+
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      data: {
-        user: user.toSafeObject(),
-        tokens: {
-          accessToken,
-          refreshToken
-        }
-      }
+      data: { user: user.toSafeObject() }
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -102,20 +127,32 @@ const login = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate tokens
     const { accessToken, refreshToken } = generateToken(user._id, user.role);
 
-    // Return user data and tokens
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    const accessMs = parseDurationToMs(config.jwtExpiresIn);
+    const refreshMs = parseDurationToMs(config.jwtRefreshExpiresIn);
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: accessMs
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: refreshMs
+    });
+
     res.json({
       success: true,
       message: 'Login successful',
-      data: {
-        user: user.toSafeObject(),
-        tokens: {
-          accessToken,
-          refreshToken
-        }
-      }
+      data: { user: user.toSafeObject() }
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -128,16 +165,12 @@ const login = async (req, res) => {
 // Refresh token
 const refreshToken = async (req, res) => {
   try {
-    const { refreshToken: token } = req.body;
+    const token = req.body.refreshToken || (req.cookies && req.cookies.refreshToken);
 
     if (!token) {
-      return res.status(400).json({
-        error: { message: 'Refresh token is required' }
-      });
+      return res.status(400).json({ error: { message: 'Refresh token is required' } });
     }
 
-    // Verify refresh token
-    const { verifyToken } = require('../utils/jwt');
     const decoded = verifyToken(token);
 
     if (!decoded) {
@@ -154,19 +187,29 @@ const refreshToken = async (req, res) => {
       });
     }
 
-    // Generate new tokens
     const { accessToken, refreshToken: newRefreshToken } = generateToken(user._id, user.role);
 
-    res.json({
-      success: true,
-      message: 'Token refreshed successfully',
-      data: {
-        tokens: {
-          accessToken,
-          refreshToken: newRefreshToken
-        }
-      }
+    user.refreshToken = newRefreshToken;
+    await user.save();
+
+    const accessMs = parseDurationToMs(config.jwtExpiresIn);
+    const refreshMs = parseDurationToMs(config.jwtRefreshExpiresIn);
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: accessMs
     });
+
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: refreshMs
+    });
+
+    res.json({ success: true, message: 'Token refreshed successfully' });
   } catch (error) {
     console.error('Token refresh error:', error);
     res.status(500).json({
@@ -178,13 +221,16 @@ const refreshToken = async (req, res) => {
 // Logout (client-side token removal, but we can track here if needed)
 const logout = async (req, res) => {
   try {
-    // In a more complex system, you might want to blacklist the token
-    // For now, we'll just return success and let the client handle token removal
+    const user = await User.findById(req.userId);
+    if (user) {
+      user.refreshToken = '';
+      await user.save();
+    }
 
-    res.json({
-      success: true,
-      message: 'Logout successful'
-    });
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+
+    res.json({ success: true, message: 'Logout successful' });
   } catch (error) {
     console.error('Logout error:', error);
     res.status(500).json({
