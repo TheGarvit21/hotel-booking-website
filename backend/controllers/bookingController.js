@@ -2,6 +2,7 @@ const Booking = require('../models/Booking');
 const Hotel = require('../models/Hotel');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
+const mailer = require('../utils/mailer');
 
 // @desc    Get user's bookings
 // @route   GET /api/bookings
@@ -134,6 +135,12 @@ const createBooking = async (req, res) => {
 
     await booking.save();
     await booking.populate('hotel', 'name location city rating images price image');
+
+    mailer.sendMail({
+      to: booking.contactInfo?.email || req.user.email,
+      subject: 'Booking Confirmation',
+      html: `<p>Hi ${booking.contactInfo?.name || ''},</p><p>Your booking at ${booking.hotel?.name || ''} is confirmed.</p><p>Confirmation: ${booking.confirmationNumber || booking._id}</p>`
+    }).catch(err => console.error('Mailer error:', err));
 
     let hotelImageResp = booking.hotelImage;
     if (!hotelImageResp && booking.hotel?.images?.length > 0) {

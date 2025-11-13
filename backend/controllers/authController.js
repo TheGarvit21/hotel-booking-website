@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { generateToken } = require('../utils/jwt');
+const mailer = require('../utils/mailer');
 
 // User registration
 const register = async (req, res) => {
@@ -24,6 +25,12 @@ const register = async (req, res) => {
 
     await user.save();
 
+    mailer.sendMail({
+      to: user.email,
+      subject: 'Welcome to LuxStay',
+      html: `<p>Hi ${user.name},</p><p>Welcome to LuxStay. Your account has been created.</p>`
+    }).catch(err => console.error('Mailer error:', err));
+
     // Generate tokens
     const { accessToken, refreshToken } = generateToken(user._id, user.role);
 
@@ -41,7 +48,7 @@ const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -62,7 +69,7 @@ const login = async (req, res) => {
 
     // Find user and include password for comparison
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
-    
+
     if (!user) {
       return res.status(401).json({
         error: { message: 'Invalid email or password' }
@@ -173,7 +180,7 @@ const logout = async (req, res) => {
   try {
     // In a more complex system, you might want to blacklist the token
     // For now, we'll just return success and let the client handle token removal
-    
+
     res.json({
       success: true,
       message: 'Logout successful'
@@ -190,7 +197,7 @@ const logout = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         error: { message: 'User not found' }
@@ -242,7 +249,7 @@ const updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Update profile error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -263,7 +270,7 @@ const changePassword = async (req, res) => {
 
     // Get user with password
     const user = await User.findById(req.userId).select('+password');
-    
+
     if (!user) {
       return res.status(404).json({
         error: { message: 'User not found' }
@@ -288,7 +295,7 @@ const changePassword = async (req, res) => {
     });
   } catch (error) {
     console.error('Change password error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
