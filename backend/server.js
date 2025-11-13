@@ -3,9 +3,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-
-
 const config = require('./config/config');
+
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const hotelRoutes = require('./routes/hotels');
@@ -18,23 +17,19 @@ const PORT = config.port;
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use(limiter);
+app.use(rateLimiter);
 
 // CORS configuration
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: config.frontendUrl,
   credentials: true
 }));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.use(cookieParser());
 
 // MongoDB connection
 mongoose.connect(config.mongoUri)
@@ -44,6 +39,7 @@ mongoose.connect(config.mongoUri)
   .catch((err) => {
     console.error('MongoDB connection error:', err);
   });
+
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -60,8 +56,8 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
-    error: { 
+  res.status(500).json({
+    error: {
       message: 'Something went wrong!',
       ...(config.nodeEnv === 'development' && { stack: err.stack })
     }

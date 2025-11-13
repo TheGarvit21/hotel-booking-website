@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const { optionalAuth, requireAuth, requireAdmin } = require('../middlewares/auth');
+const debounceHandler = require('../middlewares/debounce');
 const {
   getAllHotels,
   getHotelById,
@@ -43,19 +44,15 @@ const hotelValidation = [
   body('currency')
     .optional()
     .isIn(['USD', 'EUR', 'GBP', 'INR'])
-    .withMessage('Currency must be USD, EUR, GBP, or INR'),
-  body('description')
-    .trim()
-    .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be between 10 and 1000 characters')
+    .withMessage('Currency must be USD, EUR, GBP, or INR')
 ];
 
 // Public routes
-router.get('/', optionalAuth, getAllHotels);
-router.get('/featured', optionalAuth, getFeaturedHotels);
-router.get('/search', optionalAuth, searchHotels);
-router.get('/city/:city', optionalAuth, getHotelsByCity);
-router.get('/:id', optionalAuth, getHotelById);
+router.get('/', optionalAuth, debounceHandler(getAllHotels, 300));
+router.get('/featured', optionalAuth, debounceHandler(getFeaturedHotels, 300));
+router.get('/search', optionalAuth, debounceHandler(searchHotels, 300));
+router.get('/city/:city', optionalAuth, debounceHandler(getHotelsByCity, 300));
+router.get('/:id', optionalAuth, debounceHandler(getHotelById, 300));
 
 // Protected routes (Admin only)
 router.post('/', requireAuth, requireAdmin, hotelValidation, createHotel);

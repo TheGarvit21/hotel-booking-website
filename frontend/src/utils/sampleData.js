@@ -38,11 +38,11 @@ export const generateSampleData = () => {
                 const newUser = addUser(userData)
                 createdUsers.push(newUser)
                 if (!isProduction()) {
-                    console.log(`Created user: ${newUser.name}`)
+                    // Created user: ${newUser.name}
                 }
             } catch (error) {
                 if (!isProduction()) {
-                    console.log(`User ${userData.email} already exists or error:`, error.message)
+                    // User ${userData.email} already exists or error: ${error.message}
                 }
             }
         } else {
@@ -146,18 +146,18 @@ export const generateSampleData = () => {
                 bookings.push(newBooking)
                 localStorage.setItem('bookings', JSON.stringify(bookings))
                 if (!isProduction()) {
-                    console.log(`Created booking: ${newBooking.hotelName} for user ${bookingData.userId}`)
+                    // Created booking: ${newBooking.hotelName} for user ${bookingData.userId}
                 }
             } catch (error) {
                 if (!isProduction()) {
-                    console.log('Error creating sample booking:', error.message)
+                    // Error creating sample booking: ${error.message}
                 }
             }
         }
     })
 
     if (!isProduction()) {
-        console.log('Sample data generation completed!')
+        // Sample data generation completed!
     }
     return {
         users: createdUsers,
@@ -172,6 +172,6 @@ export const clearSampleData = () => {
     localStorage.removeItem('userNotifications')
     localStorage.removeItem('adminActivity')
     if (!isProduction()) {
-        console.log('All sample data cleared!')
+        // All sample data cleared!
     }
 }

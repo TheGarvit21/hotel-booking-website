@@ -143,7 +143,6 @@ const createHotel = async (req, res) => {
       rating = 4.0,
       price,
       currency = 'INR',
-      description,
       amenities = [],
       images = [],
       image,
@@ -174,7 +173,6 @@ const createHotel = async (req, res) => {
       rating: Number(rating),
       price: Number(price),
       currency,
-      description: description.trim(),
       amenities: Array.isArray(amenities) ? amenities.filter(a => a.trim()) : [],
       images: Array.isArray(images) ? images.filter(img => img.trim()) : [],
       image: image?.trim(),
@@ -244,7 +242,6 @@ const updateHotel = async (req, res) => {
       rating,
       price,
       currency,
-      description,
       amenities,
       images,
       image,
@@ -280,7 +277,6 @@ const updateHotel = async (req, res) => {
     if (rating !== undefined) hotel.rating = Number(rating);
     if (price !== undefined) hotel.price = Number(price);
     if (currency !== undefined) hotel.currency = currency;
-    if (description !== undefined) hotel.description = description.trim();
     if (amenities !== undefined) hotel.amenities = Array.isArray(amenities) ? amenities.filter(a => a.trim()) : [];
     if (images !== undefined) hotel.images = Array.isArray(images) ? images.filter(img => img.trim()) : [];
     if (image !== undefined) hotel.image = image?.trim();

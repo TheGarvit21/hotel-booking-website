@@ -188,13 +188,32 @@ const Auth = () => {
           if (result.success) {
             // Authentication succeeded - user is already set by loginUser
             // Success animation before redirect
-            gsap.to(formRef.current, {
-              scale: 1.03,
-              duration: 0.15,
-              yoyo: true,
-              repeat: 1,
-              onComplete: () => navigate('/')
-            });
+            const pendingBooking = sessionStorage.getItem('pendingBooking');
+            if (pendingBooking) {
+              const bookingData = JSON.parse(pendingBooking);
+              sessionStorage.removeItem('pendingBooking');
+              gsap.to(formRef.current, {
+                scale: 1.03,
+                duration: 0.15,
+                yoyo: true,
+                repeat: 1,
+                onComplete: () => navigate(`/hotel/${bookingData.hotelId}`, {
+                  state: {
+                    checkIn: bookingData.checkIn,
+                    checkOut: bookingData.checkOut,
+                    guests: bookingData.guests
+                  }
+                })
+              });
+            } else {
+              gsap.to(formRef.current, {
+                scale: 1.03,
+                duration: 0.15,
+                yoyo: true,
+                repeat: 1,
+                onComplete: () => navigate('/')
+              });
+            }
           } else {
             // Authentication failed
             setErrors({ general: result.error || 'Invalid email or password. Please try again.' });

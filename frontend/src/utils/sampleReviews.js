@@ -24,7 +24,7 @@ export function initializeSampleReviews() {
 
         setJSON(REVIEWS_STORAGE_KEY, sampleReviews);
         if (!isProduction()) {
-            console.log('Review system initialized - ready for authenticated user reviews only');
+            // Review system initialized - ready for authenticated user reviews only
         }
     }
 }
@@ -35,6 +35,6 @@ export function initializeSampleReviews() {
 export function clearAllReviews() {
     setJSON(REVIEWS_STORAGE_KEY, {});
     if (!isProduction()) {
-        console.log('All reviews cleared');
+        // All reviews cleared
     }
 }

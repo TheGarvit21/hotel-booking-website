@@ -33,7 +33,6 @@ export async function apiFetch(path, { method = 'GET', body, headers = {}, token
             try {
                 accessToken = await refreshAccessToken();
             } catch (error) {
-                console.error('Token refresh failed:', error);
                 // Continue without token, let the server handle the response
             }
         }
@@ -47,7 +46,7 @@ export async function apiFetch(path, { method = 'GET', body, headers = {}, token
         const res = await fetch(url, {
             method,
             headers: h,
-            body: body ? JSON.stringify(body) : undefined,
+            body: (body && typeof body === 'object' && h['Content-Type'] === 'application/json') ? JSON.stringify(body) : body,
             credentials: 'include',
         });
         
@@ -59,10 +58,16 @@ export async function apiFetch(path, { method = 'GET', body, headers = {}, token
                 payload = { error: { code: `${res.status}`, message: res.statusText } }; 
             }
             
-            const err = new Error(payload?.error?.message || res.statusText);
+            // Handle backend's error format: { success: false, message: "...", errors: [...] }
+            let errorMessage = payload?.error?.message || payload?.message || res.statusText;
+            if (payload?.errors && Array.isArray(payload.errors)) {
+                errorMessage += ': ' + payload.errors.map(e => e.msg || e.message).join(', ');
+            }
+            
+            const err = new Error(errorMessage);
             err.status = res.status;
-            err.code = payload?.error?.code || `${res.status}`;
-            err.details = payload?.error?.details;
+            err.code = payload?.error?.code || payload?.code || `${res.status}`;
+            err.details = payload?.error?.details || payload?.errors;
             
             // Handle authentication errors
             if (res.status === 401) {

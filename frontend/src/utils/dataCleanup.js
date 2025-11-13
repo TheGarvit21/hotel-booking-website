@@ -11,14 +11,13 @@ function clearUserCache() {
     }
 }
 
-export const cleanupSampleData = () => {
+export const cleanupSampleData = async () => {
     try {
         clearUserCache();
         // Get real authenticated users
-        const realUsers = getUsers() || [];
+        const realUsers = await getUsers() || [];
         // Ensure realUsers is an array
         if (!Array.isArray(realUsers)) {
-            console.warn('getUsers() did not return an array:', realUsers);
             return { removed: 0, remaining: 0 };
         }
         // Ensure all user IDs are strings for comparison
@@ -45,7 +44,6 @@ export const cleanupSampleData = () => {
             remaining: realBookings.length
         };
     } catch (error) {
-        console.error('Error cleaning up sample data:', error);
         return { removed: 0, remaining: 0 };
     }
 }
@@ -55,7 +53,6 @@ export const getDataSummary = () => {
         const realUsers = getUsers() || [];
         // Ensure realUsers is an array
         if (!Array.isArray(realUsers)) {
-            console.warn('getUsers() did not return an array:', realUsers);
             return { totalUsers: 0, totalBookings: 0, realBookings: 0, sampleBookings: 0 };
         }
         const realUserIds = realUsers.map(u => String(u.id)).filter(Boolean);
@@ -77,7 +74,6 @@ export const getDataSummary = () => {
             sampleBookings: allBookings.length - realBookings.length
         };
     } catch (error) {
-        console.error('Error getting data summary:', error);
         return { totalUsers: 0, totalBookings: 0, realBookings: 0, sampleBookings: 0 };
     }
 }

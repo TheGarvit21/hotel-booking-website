@@ -8,7 +8,7 @@ export const createBooking = async (bookingData) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(bookingData),
+      body: bookingData,
     });
     return response;
   } catch (error) {

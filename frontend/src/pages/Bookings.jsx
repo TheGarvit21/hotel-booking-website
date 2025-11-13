@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { getCurrentUser } from '../utils/auth';
-import { canCancelBooking, getBookings, getCancellationDeadline, updateBookingStatus } from '../utils/bookings';
+import { canCancelBooking, getBookings, getCancellationDeadline, updateBookingStatus, migrateBookingsStorage } from '../utils/bookings';
 import { formatPriceINR } from '../utils/currency';
 
 const Bookings = () => {
@@ -24,40 +24,16 @@ const Bookings = () => {
       navigate('/auth');
       return;
     }
-
-    const loadBookings = () => {
-      try {
-        setLoading(true);
-        // --- FETCH LOGIC (commented) ---
-        // fetch(`/api/bookings?userId=${user.id}`)
-        //   .then(res => res.json())
-        //   .then(bookings => setBookings(bookings))
-        //   .catch(() => setBookings([]));
-        // --- END FETCH LOGIC ---
-        // adopt any legacy/orphan bookings without userId to this user (one-time)
-        try {
-          const all = JSON.parse(localStorage.getItem('bookings') || '[]');
-          let changed = false;
-          const adopted = all.map(b => {
-            if (!b.userId) { changed = true; return { ...b, userId: user.id }; }
-            return b;
-          });
-          if (changed) localStorage.setItem('bookings', JSON.stringify(adopted));
-        } catch {
-          // ignore storage parse errors
+    setLoading(true);
+    import('../services/bookings').then(({ getUserBookings }) => {
+      getUserBookings().then(response => {
+        if (response && response.success && Array.isArray(response.data)) {
+          setBookings(response.data);
+        } else {
+          setBookings([]);
         }
-
-        const userBookings = getBookings(user.id);
-        setBookings(userBookings);
-      } catch (error) {
-        console.error('Error loading bookings:', error);
-        setBookings([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadBookings();
+      }).catch(() => setBookings([])).finally(() => setLoading(false));
+    });
   }, [user?.id, navigate]);
 
   useEffect(() => {
@@ -142,17 +118,18 @@ const Bookings = () => {
   }, [bookings]);
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Invalid Date';
-
+    if (!dateString || typeof dateString !== 'string') return 'Invalid Date';
+    // Accept YYYY-MM-DD or ISO format
+    let date;
     try {
-      const date = new Date(dateString + 'T00:00:00');
+      date = new Date(dateString.includes('T') ? dateString : dateString + 'T00:00:00');
+      if (isNaN(date.getTime())) return 'Invalid Date';
       return date.toLocaleDateString('en-IN', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       });
-    } catch (error) {
-      console.error('Error formatting date:', error);
+    } catch {
       return 'Invalid Date';
     }
   };
@@ -160,8 +137,9 @@ const Bookings = () => {
   const getNights = (b) => {
     if (b?.nights && Number.isFinite(b.nights)) return b.nights;
     try {
-      const ci = new Date(b.checkIn + 'T00:00:00');
-      const co = new Date(b.checkOut + 'T00:00:00');
+      const ci = new Date(typeof b.checkIn === 'string' ? b.checkIn + 'T00:00:00' : b.checkIn);
+      const co = new Date(typeof b.checkOut === 'string' ? b.checkOut + 'T00:00:00' : b.checkOut);
+      if (isNaN(ci.getTime()) || isNaN(co.getTime())) return 1;
       const diff = Math.max(0, (co - ci) / (1000 * 60 * 60 * 24));
       return Math.max(1, Math.round(diff));
     } catch {
@@ -456,6 +434,23 @@ const Bookings = () => {
   function BookingCard({ booking, index }) {
     const cancellationInfo = canCancelBooking(booking);
 
+    // Fallback to hotel image from hotel data if missing
+    let imageSrc = booking.hotelImage;
+    if (!imageSrc && booking.hotelId) {
+      try {
+        const hotels = JSON.parse(localStorage.getItem('hotels') || '[]');
+        const hotel = hotels.find(h => h.id === booking.hotelId || h._id === booking.hotelId);
+        if (hotel && hotel.images && hotel.images.length > 0) imageSrc = hotel.images[0];
+      } catch {}
+    }
+    if (!imageSrc && booking.hotelName) {
+      try {
+        const hotels = JSON.parse(localStorage.getItem('hotels') || '[]');
+        const hotel = hotels.find(h => h.name === booking.hotelName);
+        if (hotel && hotel.images && hotel.images.length > 0) imageSrc = hotel.images[0];
+      } catch {}
+    }
+    if (!imageSrc) imageSrc = "/placeholder.svg?height=160&width=280";
     return (
       <Motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -466,7 +461,7 @@ const Bookings = () => {
         {/* Media (col 1) */}
         <div className="booking-media" style={{ position: 'relative' }}>
           <img
-            src={booking.hotelImage || "/placeholder.svg?height=160&width=280"}
+            src={imageSrc}
             alt={booking.hotelName}
             className="booking-image"
             onError={(e) => { e.target.src = "/placeholder.svg?height=160&width=280"; }}
@@ -484,8 +479,8 @@ const Bookings = () => {
           <p className="booking-location">📍 {booking.hotelLocation}</p>
           <div className="booking-chips">
             <span className="chip">{getNights(booking)} night{getNights(booking) === 1 ? '' : 's'}</span>
-            <span className="chip chip-accent">Avg: {priceMap[booking.id]?.avg || '—'}/night</span>
-            <span className="chip chip-primary">Total: {priceMap[booking.id]?.total || '₹0'}</span>
+            <span className="chip chip-accent">Avg: {priceMap[booking.id]?.avg && priceMap[booking.id]?.avg !== 'NaN' ? priceMap[booking.id]?.avg : '₹0'}/night</span>
+            <span className="chip chip-primary">Total: {priceMap[booking.id]?.total && priceMap[booking.id]?.total !== 'NaN' ? priceMap[booking.id]?.total : '₹0'}</span>
           </div>
 
           {/* Cancellation Policy Info */}
@@ -525,16 +520,22 @@ const Bookings = () => {
               <strong>Check-out</strong>
               <div>{formatDate(booking.checkOut)}</div>
             </div>
-            <div className="booking-detail metric">
-              <strong>Guests</strong>
-              <div>{booking.guests === '6+' ? '6+ guests' : `${booking.guests} guest${Number(booking.guests) > 1 ? 's' : ''}`}</div>
-            </div>
+              <div className="booking-detail metric">
+                <strong>Guests</strong>
+                <div>{
+                  typeof booking.guests === 'object' || booking.guests == null
+                    ? '1 guest'
+                    : booking.guests === '6+'
+                      ? '6+ guests'
+                      : `${booking.guests} guest${Number(booking.guests) > 1 ? 's' : ''}`
+                }</div>
+              </div>
             <div className="booking-detail metric">
               <strong>Breakdown</strong>
               <div style={{ fontSize: '13px', color: 'var(--text-gray)', marginTop: '4px' }}>
-                <div>Base: {priceMap[booking.id]?.base || '₹0'}</div>
-                <div>Service: {priceMap[booking.id]?.service || '₹0'}</div>
-                <div>Taxes: {priceMap[booking.id]?.taxes || '₹0'}</div>
+                <div>Base: {priceMap[booking.id]?.base && priceMap[booking.id]?.base !== 'NaN' ? priceMap[booking.id]?.base : '₹0'}</div>
+                <div>Service: {priceMap[booking.id]?.service && priceMap[booking.id]?.service !== 'NaN' ? priceMap[booking.id]?.service : '₹0'}</div>
+                <div>Taxes: {priceMap[booking.id]?.taxes && priceMap[booking.id]?.taxes !== 'NaN' ? priceMap[booking.id]?.taxes : '₹0'}</div>
               </div>
             </div>
           </div>

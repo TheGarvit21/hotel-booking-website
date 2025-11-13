@@ -39,20 +39,11 @@ function safeJSONParse(str) {
     try { return JSON.parse(str); } catch { return null; }
 }
 
-function logDebug(...args) {
-    try {
-        const isDev = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
-        if (isDev) console.warn('[Currency]', ...args);
-    } catch {
-        // ignore env detection errors
-    }
-}
-
 function saveRates(rates) {
     try {
         localStorage.setItem(RATES_STORAGE_KEY, JSON.stringify({ ts: Date.now(), rates }));
     } catch (err) {
-        logDebug('Failed to save rates:', err);
+        // Failed to save rates
     }
 }
 
@@ -86,7 +77,7 @@ export function setCurrencyPref(code) {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(pref));
     } catch (err) {
-        logDebug('Failed to set currency preference:', err);
+        // Failed to set currency preference
     }
     return pref;
 }
@@ -116,7 +107,7 @@ async function fetchRates(fetchFn = fetch) {
                 return cache.rates;
             }
         } catch (err) {
-            logDebug('Backend fetch failed:', err);
+            // Backend fetch failed
         }
 
         // 2) Public providers
@@ -130,7 +121,7 @@ async function fetchRates(fetchFn = fetch) {
                     return cache.rates;
                 }
             } catch (err) {
-                logDebug(`Provider fetch failed (${url}):`, err);
+                // Provider fetch failed
             }
         }
 

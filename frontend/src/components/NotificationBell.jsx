@@ -20,7 +20,7 @@ const NotificationBell = () => {
                     loadNotifications(currentUser.id);
                 }
             } catch (error) {
-                console.error('Error loading user:', error);
+                // Error loading user
             }
         };
 
@@ -44,7 +44,7 @@ const NotificationBell = () => {
             const { userId } = e.detail;
             // Reload notifications if this cancellation affects the current user
             if (user && userId === user.id) {
-                console.log('NotificationBell: Booking cancelled for current user, reloading notifications');
+                // NotificationBell: Booking cancelled for current user, reloading notifications
                 loadNotifications(user.id);
             }
         };
@@ -52,7 +52,7 @@ const NotificationBell = () => {
         // Listen for general notification updates
         const handleNotificationUpdate = () => {
             if (user) {
-                console.log('NotificationBell: Notification updated, reloading');
+                // NotificationBell: Notification updated, reloading
                 loadNotifications(user.id);
             }
         };
@@ -69,9 +69,9 @@ const NotificationBell = () => {
     }, [user]);
 
     const loadNotifications = (userId) => {
-        console.log('NotificationBell: Loading notifications for user:', userId);
+        // NotificationBell: Loading notifications for user
         const userNotifications = getUserNotifications(userId);
-        console.log('NotificationBell: Found notifications:', userNotifications);
+        // NotificationBell: Found notifications
 
         // Only show unread notifications in the bell dropdown
         const unreadNotifications = userNotifications.filter(notification => !notification.read);
@@ -79,7 +79,7 @@ const NotificationBell = () => {
         setNotifications(sortedNotifications.slice(0, 10)); // Show only latest 10 unread
 
         const unreadCount = getUnreadNotificationCount(userId);
-        console.log('NotificationBell: Unread count:', unreadCount);
+        // NotificationBell: Unread count
         setUnreadCount(unreadCount);
     };
 
@@ -127,11 +127,11 @@ const NotificationBell = () => {
     };
 
     if (!user) {
-        console.log('NotificationBell: No user found, not rendering');
+        // NotificationBell: No user found, not rendering
         return null;
     }
 
-    console.log('NotificationBell: Rendering for user:', user, 'Unread count:', unreadCount);
+    // NotificationBell: Rendering for user, Unread count
 
     return (
         <div className="notification-bell-container">

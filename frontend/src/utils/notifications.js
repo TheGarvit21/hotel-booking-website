@@ -12,7 +12,7 @@ export const getUserNotifications = (userId) => {
         return notifications.filter(notification => notification.userId === userId);
     } catch (error) {
         if (!isProduction()) {
-            console.error('Error getting notifications:', error);
+            // Error getting notifications
         }
         return [];
     }
@@ -40,10 +40,10 @@ export const addNotification = (notification) => {
             }
         }));
 
-        console.log('Notification added:', newNotification);
+        // Notification added
         return newNotification;
     } catch (error) {
-        console.error('Error adding notification:', error);
+        // Error adding notification
         return null;
     }
 };
@@ -61,7 +61,7 @@ export const markNotificationAsRead = (notificationId) => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedNotifications));
         return true;
     } catch (error) {
-        console.error('Error marking notification as read:', error);
+        // Error marking notification as read
         return false;
     }
 };
@@ -79,7 +79,7 @@ export const markAllNotificationsAsRead = (userId) => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedNotifications));
         return true;
     } catch (error) {
-        console.error('Error marking all notifications as read:', error);
+        // Error marking all notifications as read
         return false;
     }
 };
@@ -93,7 +93,7 @@ export const deleteNotification = (notificationId) => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredNotifications));
         return true;
     } catch (error) {
-        console.error('Error deleting notification:', error);
+        // Error deleting notification
         return false;
     }
 };
@@ -104,7 +104,7 @@ export const getUnreadNotificationCount = (userId) => {
         const notifications = getUserNotifications(userId);
         return notifications.filter(notification => !notification.read).length;
     } catch (error) {
-        console.error('Error getting unread count:', error);
+        // Error getting unread count
         return 0;
     }
 };
@@ -114,7 +114,7 @@ export const createBookingCancellationNotification = (userId, bookingDetails, ca
     // Detect and fix currency mismatch (same logic as AdminDashboard)
     const detectAndFixCurrencyMismatch = (amount, currencyCode) => {
         if (amount > 5000 && ['USD', 'EUR', 'GBP'].includes(currencyCode)) {
-            console.log(`Detected currency mismatch: amount ${amount} in ${currencyCode}, likely INR`);
+            // Detected currency mismatch: amount ${amount} in ${currencyCode}, likely INR
             return { amount, currency: 'INR' };
         }
         return { amount, currency: currencyCode };
@@ -163,7 +163,7 @@ export const createBookingConfirmationNotification = (userId, bookingDetails) =>
     // Detect and fix currency mismatch (same logic as AdminDashboard)
     const detectAndFixCurrencyMismatch = (amount, currencyCode) => {
         if (amount > 5000 && ['USD', 'EUR', 'GBP'].includes(currencyCode)) {
-            console.log(`Detected currency mismatch: amount ${amount} in ${currencyCode}, likely INR`);
+            // Detected currency mismatch: amount ${amount} in ${currencyCode}, likely INR
             return { amount, currency: 'INR' };
         }
         return { amount, currency: currencyCode };

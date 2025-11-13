@@ -178,7 +178,18 @@ const HotelDetails = () => {
     // Check if user is authenticated
     const currentUser = getCurrentUserSync();
     if (!currentUser) {
+      // Save booking form state to sessionStorage
+      const bookingState = {
+        hotelId: hotel?.id || hotel?._id,
+        checkIn,
+        checkOut,
+        guests,
+      };
+      sessionStorage.setItem('pendingBooking', JSON.stringify(bookingState));
       showToastMessage('Please sign in to book the room', 'warn');
+      setTimeout(() => {
+        navigate('/auth');
+      }, 1000);
       return;
     }
 
