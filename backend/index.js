@@ -3,8 +3,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const config = require('./config/config');
 
+
+const config = require('./config/config');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const hotelRoutes = require('./routes/hotels');
@@ -27,7 +28,7 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: config.frontendUrl,
+  origin: 'http://localhost:5173',
   credentials: true
 }));
 
