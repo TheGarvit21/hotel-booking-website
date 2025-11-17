@@ -15,6 +15,7 @@ import {
 import { cancelBooking, getBookings, updateBookingStatus } from "../utils/bookings";
 import { cleanupSampleData } from "../utils/dataCleanup";
 import { createBookingCancellationNotification } from "../utils/notifications";
+import AdminChat from "../components/AdminChat";
 import "./AdminDashboard.css";
 
 // Constants
@@ -727,7 +728,7 @@ function AdminDashboard() {
 
             <nav className="admin-nav">
                 <div className="admin-nav-content">
-                    {["overview", "bookings", "users", "hotels", "analytics"].map((tab) => (
+                    {["overview", "bookings", "users", "hotels", "analytics", "chat"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -1152,6 +1153,12 @@ function AdminDashboard() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === "chat" && (
+                        <div className="admin-section" style={{ padding: 0, background: 'transparent' }}>
+                            <AdminChat />
                         </div>
                     )}
 

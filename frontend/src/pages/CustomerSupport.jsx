@@ -1,48 +1,108 @@
 import { useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
+import { getAccessToken, getCurrentUserSync } from '../utils/auth';
 
-const WS_URL = 'ws://localhost:4000'; // Change to your WebSocket server
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
 
 const CustomerSupport = () => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [connected, setConnected] = useState(false);
-    const wsRef = useRef(null);
+    const socketRef = useRef(null);
+    const messagesEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
 
     useEffect(() => {
-        const ws = new WebSocket(WS_URL);
-        wsRef.current = ws;
+        scrollToBottom();
+    }, [messages]);
 
-        ws.onopen = () => {
+    useEffect(() => {
+        const token = getAccessToken();
+        const user = getCurrentUserSync();
+
+        if (!token || !user) {
+            typeof window !== 'undefined' && window?.dispatchEvent?.(new CustomEvent('toast', { 
+                detail: { type: 'error', message: 'Please login to use customer support.' } 
+            }));
+            return;
+        }
+
+        // Connect to Socket.IO server
+        const socket = io(API_BASE, {
+            auth: {
+                token: token
+            },
+            transports: ['websocket', 'polling']
+        });
+
+        socketRef.current = socket;
+
+        socket.on('connect', () => {
             setConnected(true);
-            // Notify connection via global event (optional listener)
-            typeof window !== 'undefined' && window?.dispatchEvent?.(new CustomEvent('toast', { detail: { type: 'success', message: 'Connected to support.' } }));
-        };
+            typeof window !== 'undefined' && window?.dispatchEvent?.(new CustomEvent('toast', { 
+                detail: { type: 'success', message: 'Connected to support.' } 
+            }));
+            
+            // Request chat history
+            socket.emit('get_chat_history');
+        });
 
-        ws.onclose = () => {
+        socket.on('disconnect', () => {
             setConnected(false);
-            typeof window !== 'undefined' && window?.dispatchEvent?.(new CustomEvent('toast', { detail: { type: 'warn', message: 'Disconnected from support.' } }));
-        };
+            typeof window !== 'undefined' && window?.dispatchEvent?.(new CustomEvent('toast', { 
+                detail: { type: 'warn', message: 'Disconnected from support.' } 
+            }));
+        });
 
-        ws.onerror = (error) => {
+        socket.on('connect_error', (error) => {
             setConnected(false);
-            console.error('WebSocket error:', error);
-        };
+            console.error('Socket connection error:', error);
+            typeof window !== 'undefined' && window?.dispatchEvent?.(new CustomEvent('toast', { 
+                detail: { type: 'error', message: 'Failed to connect to support.' } 
+            }));
+        });
 
-        ws.onmessage = (event) => {
-            setMessages((prev) => [...prev, { sender: 'support', text: event.data, id: Date.now() }]);
-        };
+        socket.on('chat_history', (data) => {
+            if (data && data.messages) {
+                const formattedMessages = data.messages.map(msg => ({
+                    id: msg._id || Date.now() + Math.random(),
+                    sender: msg.sender,
+                    text: msg.message,
+                    timestamp: msg.timestamp
+                }));
+                setMessages(formattedMessages);
+            }
+        });
+
+        socket.on('new_message', (data) => {
+            setMessages((prev) => [...prev, {
+                id: Date.now() + Math.random(),
+                sender: data.sender,
+                text: data.message,
+                timestamp: data.timestamp
+            }]);
+        });
+
+        socket.on('error', (error) => {
+            console.error('Socket error:', error);
+            typeof window !== 'undefined' && window?.dispatchEvent?.(new CustomEvent('toast', { 
+                detail: { type: 'error', message: error.message || 'An error occurred.' } 
+            }));
+        });
 
         return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
+            if (socketRef.current) {
+                socketRef.current.disconnect();
             }
         };
     }, []);
 
     const sendMessage = () => {
-        if (input.trim() && wsRef.current && connected) {
-            wsRef.current.send(input);
-            setMessages((prev) => [...prev, { sender: 'user', text: input, id: Date.now() }]);
+        if (input.trim() && socketRef.current && connected) {
+            socketRef.current.emit('user_message', { message: input.trim() });
             setInput('');
         }
     };
@@ -122,30 +182,44 @@ const CustomerSupport = () => {
                                         marginBottom: 10
                                     }}
                                 >
-                                    <span
-                                        style={{
-                                            background:
-                                                msg.sender === 'user'
-                                                    ? 'linear-gradient(135deg, var(--primary-color, #ff6b35), var(--primary-dark, #e55a28))'
-                                                    : 'rgba(255,255,255,0.08)',
-                                            color: msg.sender === 'user' ? 'white' : 'var(--text-light, #d0d5f0)',
-                                            borderRadius: 12,
-                                            padding: '10px 18px',
-                                            fontSize: 16,
-                                            maxWidth: '80%',
-                                            boxShadow:
-                                                msg.sender === 'user'
-                                                    ? '0 2px 8px rgba(255,107,53,0.12)'
-                                                    : '0 2px 8px rgba(0,0,0,0.08)',
-                                            fontWeight: msg.sender === 'user' ? 600 : 500,
-                                            letterSpacing: '0.2px'
-                                        }}
-                                    >
-                                        {msg.text}
-                                    </span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '80%' }}>
+                                        <span
+                                            style={{
+                                                background:
+                                                    msg.sender === 'user'
+                                                        ? 'linear-gradient(135deg, var(--primary-color, #ff6b35), var(--primary-dark, #e55a28))'
+                                                        : 'rgba(255,255,255,0.08)',
+                                                color: msg.sender === 'user' ? 'white' : 'var(--text-light, #d0d5f0)',
+                                                borderRadius: 12,
+                                                padding: '10px 18px',
+                                                fontSize: 16,
+                                                boxShadow:
+                                                    msg.sender === 'user'
+                                                        ? '0 2px 8px rgba(255,107,53,0.12)'
+                                                        : '0 2px 8px rgba(0,0,0,0.08)',
+                                                fontWeight: msg.sender === 'user' ? 600 : 500,
+                                                letterSpacing: '0.2px',
+                                                wordWrap: 'break-word'
+                                            }}
+                                        >
+                                            {msg.text}
+                                        </span>
+                                        {msg.timestamp && (
+                                            <span style={{ 
+                                                fontSize: 11, 
+                                                color: 'var(--text-gray, #a0a5c0)', 
+                                                marginTop: 4,
+                                                alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                                                padding: '0 4px'
+                                            }}>
+                                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         )}
+                        <div ref={messagesEndRef} />
                     </div>
                     <div style={{ display: 'flex', gap: 10 }}>
                         <input

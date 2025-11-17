@@ -2,6 +2,7 @@ const User = require('../models/User');
 const { generateToken, verifyToken } = require('../utils/jwt');
 const mailer = require('../utils/mailer');
 const config = require('../config/config');
+const { createClient: createRedisClient } = require('../utils/redisClient');
 
 const parseDurationToMs = (str) => {
   try {
@@ -49,6 +50,17 @@ const register = async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save();
 
+    // Store refresh token in Redis with TTL (best-effort)
+    try {
+      const redisClient = await createRedisClient();
+      const refreshMs = parseDurationToMs(config.jwtRefreshExpiresIn) || (7 * 24 * 60 * 60 * 1000);
+      const exSeconds = Math.max(1, Math.floor(refreshMs / 1000));
+      await redisClient.set(`refresh:${refreshToken}`, user._id.toString(), { EX: exSeconds });
+    } catch (e) {
+      // Non-fatal: log and continue if Redis is unavailable
+      console.error('Redis set error (register):', e && e.message ? e.message : e);
+    }
+
     const accessMs = parseDurationToMs(config.jwtExpiresIn);
     const refreshMs = parseDurationToMs(config.jwtRefreshExpiresIn);
 
@@ -69,7 +81,10 @@ const register = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      data: { user: user.toSafeObject() }
+      data: { 
+        user: user.toSafeObject(),
+        tokens: { accessToken, refreshToken }
+      }
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -132,6 +147,16 @@ const login = async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save();
 
+    // Store refresh token in Redis with TTL (best-effort)
+    try {
+      const redisClient = await createRedisClient();
+      const refreshMs = parseDurationToMs(config.jwtRefreshExpiresIn) || (7 * 24 * 60 * 60 * 1000);
+      const exSeconds = Math.max(1, Math.floor(refreshMs / 1000));
+      await redisClient.set(`refresh:${refreshToken}`, user._id.toString(), { EX: exSeconds });
+    } catch (e) {
+      console.error('Redis set error (login):', e && e.message ? e.message : e);
+    }
+
     const accessMs = parseDurationToMs(config.jwtExpiresIn);
     const refreshMs = parseDurationToMs(config.jwtRefreshExpiresIn);
 
@@ -152,7 +177,10 @@ const login = async (req, res) => {
     res.json({
       success: true,
       message: 'Login successful',
-      data: { user: user.toSafeObject() }
+      data: { 
+        user: user.toSafeObject(),
+        tokens: { accessToken, refreshToken }
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -177,6 +205,18 @@ const refreshToken = async (req, res) => {
       return res.status(401).json({
         error: { message: 'Invalid or expired refresh token' }
       });
+    }
+
+    // If Redis is available, require that the refresh token exists and matches the user
+    try {
+      const redisClient = await createRedisClient();
+      const storedUserId = await redisClient.get(`refresh:${token}`);
+      if (!storedUserId || storedUserId !== decoded.userId.toString()) {
+        return res.status(401).json({ error: { message: 'Invalid refresh token' } });
+      }
+    } catch (e) {
+      // If Redis not available, log and proceed (best-effort compatibility)
+      console.warn('Redis check skipped (refresh):', e && e.message ? e.message : e);
     }
 
     // Check if user still exists and is active
@@ -209,7 +249,13 @@ const refreshToken = async (req, res) => {
       maxAge: refreshMs
     });
 
-    res.json({ success: true, message: 'Token refreshed successfully' });
+    res.json({ 
+      success: true, 
+      message: 'Token refreshed successfully',
+      data: { 
+        tokens: { accessToken, refreshToken: newRefreshToken }
+      }
+    });
   } catch (error) {
     console.error('Token refresh error:', error);
     res.status(500).json({
@@ -225,6 +271,17 @@ const logout = async (req, res) => {
     if (user) {
       user.refreshToken = '';
       await user.save();
+    }
+
+    // Remove refresh token from Redis as well (best-effort)
+    try {
+      const token = req.cookies?.refreshToken || req.body?.refreshToken || user?.refreshToken;
+      if (token) {
+        const redisClient = await createRedisClient();
+        await redisClient.del(`refresh:${token}`);
+      }
+    } catch (e) {
+      console.warn('Redis del error (logout):', e && e.message ? e.message : e);
     }
 
     res.clearCookie('accessToken');
