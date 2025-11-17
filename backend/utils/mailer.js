@@ -9,35 +9,58 @@ async function createTransporter() {
     // Check if SMTP is configured in production
     if (config.mail && config.mail.host && config.mail.user && config.mail.pass) {
         try {
+            // For Gmail or SMTP with TLS/SSL, use appropriate settings
+            let port = config.mail.port || 587;
+            let secure = !!config.mail.secure;
+            
+            // If using port 465, ensure SSL is enabled
+            if (port === 465) {
+                secure = true;
+            }
+            
+            console.log(`Configuring SMTP: ${config.mail.host}:${port} (secure: ${secure})`);
+            
             transporter = nodemailer.createTransport({
                 host: config.mail.host,
-                port: config.mail.port,
-                secure: !!config.mail.secure,
+                port: port,
+                secure: secure,
                 auth: {
                     user: config.mail.user,
                     pass: config.mail.pass
                 },
+                connectionTimeout: 10000,
+                socketTimeout: 10000,
                 pool: {
-                    maxConnections: 10,
-                    maxMessages: 100,
+                    maxConnections: 5,
+                    maxMessages: 50,
                     rateDelta: 4000,
                     rateLimit: 14
                 }
             });
             
-            // Verify transporter connection in production
-            await transporter.verify();
+            // Verify transporter connection with timeout
+            console.log('Verifying SMTP connection...');
+            await Promise.race([
+                transporter.verify(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('SMTP verification timeout')), 15000)
+                )
+            ]);
             console.log('SMTP transporter verified successfully');
             return transporter;
         } catch (error) {
             console.error('SMTP transporter error:', error.message);
-            // Fallback to test account
+            console.error('Will fallback to Ethereal test account');
+            // Reset transporter to try fallback
             transporter = null;
         }
+    } else {
+        console.warn('SMTP not fully configured, using Ethereal test account');
     }
 
     // Fallback to ethereal test account for development
     try {
+        console.log('Creating Ethereal test account...');
         const testAccount = await nodemailer.createTestAccount();
         transporter = nodemailer.createTransport({
             host: 'smtp.ethereal.email',
@@ -46,7 +69,9 @@ async function createTransporter() {
             auth: {
                 user: testAccount.user,
                 pass: testAccount.pass
-            }
+            },
+            connectionTimeout: 10000,
+            socketTimeout: 10000
         });
         console.log('Using Ethereal test account for email');
         return transporter;
