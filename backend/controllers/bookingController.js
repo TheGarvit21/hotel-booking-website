@@ -136,11 +136,15 @@ const createBooking = async (req, res) => {
     await booking.save();
     await booking.populate('hotel', 'name location city rating images price image');
 
+    // Send booking confirmation email (best-effort, non-blocking)
     mailer.sendMail({
       to: booking.contactInfo?.email || req.user.email,
       subject: 'Booking Confirmation',
       html: `<p>Hi ${booking.contactInfo?.name || ''},</p><p>Your booking at ${booking.hotel?.name || ''} is confirmed.</p><p>Confirmation: ${booking.confirmationNumber || booking._id}</p>`
-    }).catch(err => console.error('Mailer error:', err));
+    }).catch(err => {
+      console.error('Failed to send booking confirmation email:', err.message);
+      // Non-fatal: continue with response even if email fails
+    });
 
     let hotelImageResp = booking.hotelImage;
     if (!hotelImageResp && booking.hotel?.images?.length > 0) {

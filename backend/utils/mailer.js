@@ -1,40 +1,84 @@
 const nodemailer = require('nodemailer');
 const config = require('../config/config');
-let transporterPromise = null;
+let transporter = null;
 
 async function createTransporter() {
-    if (transporterPromise) return transporterPromise;
-    if (config.mail && config.mail.host) {
-        transporterPromise = Promise.resolve(nodemailer.createTransport({
-            host: config.mail.host,
-            port: config.mail.port,
-            secure: !!config.mail.secure,
-            auth: config.mail.user ? { user: config.mail.user, pass: config.mail.pass } : undefined
-        }));
-        return transporterPromise;
+    // If transporter already exists, return it
+    if (transporter) return transporter;
+
+    // Check if SMTP is configured in production
+    if (config.mail && config.mail.host && config.mail.user && config.mail.pass) {
+        try {
+            transporter = nodemailer.createTransport({
+                host: config.mail.host,
+                port: config.mail.port,
+                secure: !!config.mail.secure,
+                auth: {
+                    user: config.mail.user,
+                    pass: config.mail.pass
+                },
+                pool: {
+                    maxConnections: 10,
+                    maxMessages: 100,
+                    rateDelta: 4000,
+                    rateLimit: 14
+                }
+            });
+            
+            // Verify transporter connection in production
+            await transporter.verify();
+            console.log('SMTP transporter verified successfully');
+            return transporter;
+        } catch (error) {
+            console.error('SMTP transporter error:', error.message);
+            // Fallback to test account
+            transporter = null;
+        }
     }
-    transporterPromise = (async () => {
+
+    // Fallback to ethereal test account for development
+    try {
         const testAccount = await nodemailer.createTestAccount();
-        return nodemailer.createTransport({
+        transporter = nodemailer.createTransport({
             host: 'smtp.ethereal.email',
             port: 587,
             secure: false,
-            auth: { user: testAccount.user, pass: testAccount.pass }
+            auth: {
+                user: testAccount.user,
+                pass: testAccount.pass
+            }
         });
-    })();
-    return transporterPromise;
+        console.log('Using Ethereal test account for email');
+        return transporter;
+    } catch (error) {
+        console.error('Failed to create test account:', error.message);
+        throw new Error('Email transporter initialization failed');
+    }
 }
 
 async function sendMail({ to, subject, text, html, from }) {
-    const transporter = await createTransporter();
-    const info = await transporter.sendMail({
-        from: from || config.mail?.from || `no-reply@localhost`,
-        to,
-        subject,
-        text,
-        html
-    });
-    return info;
+    try {
+        if (!to) {
+            throw new Error('Recipient email address is required');
+        }
+
+        const mailTransporter = await createTransporter();
+        
+        const info = await mailTransporter.sendMail({
+            from: from || config.mail?.from || 'no-reply@localhost',
+            to,
+            subject,
+            text,
+            html
+        });
+
+        console.log('Email sent successfully:', info.messageId);
+        return info;
+    } catch (error) {
+        console.error('Failed to send email:', error.message);
+        // Re-throw error so calling code can handle it
+        throw error;
+    }
 }
 
 module.exports = { sendMail, createTransporter };

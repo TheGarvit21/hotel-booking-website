@@ -39,11 +39,15 @@ const register = async (req, res) => {
 
     await user.save();
 
+    // Send welcome email (best-effort, non-blocking)
     mailer.sendMail({
       to: user.email,
       subject: 'Welcome to LuxStay',
       html: `<p>Hi ${user.name},</p><p>Welcome to LuxStay. Your account has been created.</p>`
-    }).catch(err => console.error('Mailer error:', err));
+    }).catch(err => {
+      console.error('Failed to send welcome email:', err.message);
+      // Non-fatal: continue with registration even if email fails
+    });
 
     const { accessToken, refreshToken } = generateToken(user._id, user.role);
 
