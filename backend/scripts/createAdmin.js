@@ -9,7 +9,7 @@ const User = require('../models/User');
 const ADMIN_CREDENTIALS = {
   name: 'Admin User',
   email: 'admin@luxstay.com',
-  password: 'admin123456',
+  password: 'BHAICHARAONTOP123',
   role: 'admin',
   status: 'active',
   phone: '+1234567890',
