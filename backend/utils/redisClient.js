@@ -2,6 +2,7 @@
 // Returns a singleton connected client. Callers should `await createClient()`.
 
 const redis = require('redis');
+const config = require('../config/config');
 
 let client = null;
 let isConnecting = false;
@@ -29,7 +30,7 @@ async function createClient() {
     isConnecting = true;
 
     try {
-        const url = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+        const url = config.redisUrl || 'redis://127.0.0.1:6379';
 
         const socketOptions = {
             reconnectStrategy: (retries) => {

@@ -1,8 +1,9 @@
 const rateLimit = require('express-rate-limit');
+const config = require('../config/config');
 
-const windowMs = process.env.RATE_LIMIT_WINDOW_MS ? parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) : 15 * 60 * 1000;
-const max = process.env.RATE_LIMIT_MAX ? parseInt(process.env.RATE_LIMIT_MAX, 10) : 100;
-const message = process.env.RATE_LIMIT_MESSAGE || 'Too many requests from this IP, please try again later.';
+const windowMs = config.rateLimitWindowMs || 15 * 60 * 1000;
+const max = config.rateLimitMax || 100;
+const message = config.rateLimitMessage || 'Too many requests from this IP, please try again later.';
 
 const limiter = rateLimit({
     windowMs,
