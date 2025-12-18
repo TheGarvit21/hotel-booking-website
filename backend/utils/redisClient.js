@@ -9,7 +9,7 @@ let isConnecting = false;
 async function createClient() {
     // Return existing connected client
     if (client && client.isOpen) return client;
-    
+
     // Avoid multiple simultaneous connection attempts
     if (isConnecting) {
         return new Promise((resolve, reject) => {
@@ -31,16 +31,27 @@ async function createClient() {
     try {
         const url = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
-        client = redis.createClient({ 
-            url,
-            socket: {
-                reconnectStrategy: (retries) => {
-                    // Exponential backoff: 0, 100, 200, 400, 800, ... up to 3000ms
-                    const delay = Math.min(retries * 100, 3000);
-                    console.log(`[Redis] Reconnecting in ${delay}ms (attempt ${retries})`);
-                    return delay;
+        const socketOptions = {
+            reconnectStrategy: (retries) => {
+                if (retries > 5) {
+                    console.error('[Redis] Max retries exceeded. Stopping reconnection.');
+                    return new Error('Max retries exceeded');
                 }
+                const delay = Math.min(retries * 100, 3000);
+                console.log(`[Redis] Reconnecting in ${delay}ms (attempt ${retries})`);
+                return delay;
             }
+        };
+
+        // Explicitly enable TLS if using rediss://
+        if (url.startsWith('rediss://')) {
+            socketOptions.tls = true;
+            // socketOptions.rejectUnauthorized = false; // Uncomment if needed for self-signed certs
+        }
+
+        client = redis.createClient({
+            url,
+            socket: socketOptions
         });
 
         client.on('error', (err) => {

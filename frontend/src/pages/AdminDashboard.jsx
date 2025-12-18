@@ -12,9 +12,8 @@ import {
     setUserStatus,
     updateUser,
 } from "../utils/auth";
-import { cancelBooking, getBookings, updateBookingStatus } from "../utils/bookings";
+import { cancelBooking, updateBooking } from "../services/bookings";
 import { cleanupSampleData } from "../utils/dataCleanup";
-import { createBookingCancellationNotification } from "../utils/notifications";
 import AdminChat from "../components/AdminChat";
 import "./AdminDashboard.css";
 
@@ -89,12 +88,6 @@ function AdminDashboard() {
     const [showUserModal, setShowUserModal] = useState(false);
     const [showHotelModal, setShowHotelModal] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
-    const [analyticsData, setAnalyticsData] = useState({
-        monthlyBookings: [],
-        revenueByCity: [],
-        topHotels: [],
-        bookingTrends: [],
-    });
     const [newUser, setNewUser] = useState({ name: "", email: "", status: "active" });
     const [selectedHotel, setSelectedHotel] = useState(null);
     const [hotelFormData, setHotelFormData] = useState({
@@ -144,33 +137,6 @@ function AdminDashboard() {
         };
     }, []);
 
-    const notifyUserCancellation = useCallback(
-        (booking) => {
-            const user = usersData.find((u) => u.id === booking.userId);
-            if (!user) {
-                return false;
-            }
-            try {
-                const notification = createBookingCancellationNotification(
-                    user.id,
-                    {
-                        id: booking.id,
-                        hotelName: booking.hotelName,
-                        totalPrice: booking.totalPrice || 0,
-                        currency: booking.currency || "INR",
-                        checkIn: booking.checkIn,
-                        checkOut: booking.checkOut,
-                    },
-                    "admin",
-                );
-                return true;
-            } catch (error) {
-                return false;
-            }
-        },
-        [usersData],
-    );
-
     const formatCurrency = (amount, currency) => {
         if (!amount || !VALID_CURRENCIES.includes(currency)) {
             return `${CURRENCY_SYMBOLS.INR}0`;
@@ -186,78 +152,65 @@ function AdminDashboard() {
         }
     };
 
-    const generateAnalytics = useCallback((bookings, hotels) => {
-        const monthlyBookings = MONTHS.map((month, index) => ({
-            month,
-            bookings: bookings.filter((b) => new Date(b.bookingDate).getMonth() === index).length,
-        }));
-
-        const revenueByCity = hotels.reduce((acc, hotel) => {
-            const cityBookings = bookings.filter((b) => b.hotelId === hotel.id);
-            const revenue = cityBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
-            if (revenue > 0) {
-                acc.push({ city: hotel.city, revenue });
-            }
-            return acc;
-        }, []);
-
-        const topHotels = hotels
-            .map((hotel) => ({
-                hotel: hotel.name,
-                bookings: bookings.filter((b) => b.hotelId === hotel.id).length,
-            }))
-            .sort((a, b) => b.bookings - a.bookings)
-            .slice(0, 5);
-
-        return { monthlyBookings, revenueByCity, topHotels, bookingTrends: [] };
-    }, []);
-
-    const generateSampleUsers = useCallback((bookings) => {
-        let realUsers = getUsers();
-        // Ensure realUsers is an array
-        if (!Array.isArray(realUsers)) {
-            return [];
-        }
-        return realUsers.map((user) => ({
-            id: user.id,
-            name: user.name || user.email.split("@")[0],
-            email: user.email,
-            joinDate: user.createdAt || new Date().toISOString(),
-            bookings: bookings.filter((b) => b.userId === user.id).length,
-            status: user.status || "active",
-            updatedAt: user.updatedAt,
-        }));
-    }, []);
-
     // Data Loading
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
             const hotels = await getHotelsWithFallback();
-            const allBookings = getBookings();
-            const currentUser = getCurrentUserSync?.() || null;
-            let realUsers = getUsers();
-            // Ensure realUsers is an array
-            if (!Array.isArray(realUsers)) {
-                realUsers = [];
+            const { getAllBookings } = await import('../services/bookings');
+            const bookingsResponse = await getAllBookings();
+
+            // Normalize bookings with flattened IDs
+            const realBookings = (bookingsResponse.data || []).map(b => ({
+                ...b,
+                id: b._id || b.id,
+                userId: b.user?._id || b.userId || (typeof b.user === 'string' ? b.user : null)
+            }));
+
+            // Fetch users from backend
+            const { getAllUsers } = await import('../services/users');
+            const usersResponse = await getAllUsers({ limit: 1000 }); // Fetch all users for now
+            let rawUsers = usersResponse.data || [];
+
+            let finalUsers = [];
+
+            // If backend user fetch returns empty (shouldn't happen), fallback to extracting from bookings
+            if (rawUsers.length === 0) {
+                finalUsers = Array.from(new Set(realBookings.map(b => b.userId).filter(Boolean)))
+                    .map(userId => {
+                        const booking = realBookings.find(b => b.userId === userId);
+                        return {
+                            id: userId,
+                            name: booking?.user?.name || booking?.contactInfo?.name || 'Unknown',
+                            email: booking?.user?.email || booking?.contactInfo?.email || 'unknown@example.com',
+                            status: 'active',
+                            bookings: realBookings.filter(b => b.userId === userId).length,
+                            role: 'user',
+                            joinDate: booking?.createdAt || booking?.bookingDate || new Date().toISOString()
+                        };
+                    });
+            } else {
+                // Map backend users to dashboard format
+                finalUsers = rawUsers.map(u => ({
+                    ...u,
+                    id: u._id || u.id,
+                    joinDate: u.createdAt || new Date().toISOString(),
+                    bookings: realBookings.filter(b => b.userId === (u._id || u.id)).length
+                }));
             }
 
-            if (currentUser && !realUsers.some((u) => String(u.id) === String(currentUser.id))) {
-                realUsers = [...realUsers, currentUser];
-                localStorage.setItem("users", JSON.stringify(realUsers));
-            }
 
-            const users = generateSampleUsers(allBookings);
-            const realUserIds = users.map((u) => u.id);
-            const realBookings = allBookings.filter((booking) => realUserIds.includes(booking.userId));
+            // REVENUE CALCULATION FIX: Only count non-cancelled bookings
+            const totalRevenue = realBookings
+                .filter(b => b.status !== 'cancelled')
+                .reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
 
-            const totalRevenue = realBookings.reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
             const confirmedBookings = realBookings.filter((b) => b.status === "confirmed").length;
             const pendingBookings = realBookings.filter((b) => b.status === "pending").length;
             const cancelledBookings = realBookings.filter((b) => b.status === "cancelled").length;
             const currentMonth = new Date().getMonth();
             const monthlyRevenue = realBookings
-                .filter((b) => new Date(b.bookingDate).getMonth() === currentMonth)
+                .filter((b) => new Date(b.bookingDate).getMonth() === currentMonth && b.status !== 'cancelled')
                 .reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
 
             // Ensure hotels have proper IDs
@@ -265,14 +218,15 @@ function AdminDashboard() {
                 ...hotel,
                 id: hotel.id || hotel._id || `temp-${Date.now()}-${Math.random()}`
             }));
+
             setHotelsData(hotelsWithIds);
-            setUsersData(users);
-            setFilteredUsers(users);
+            setUsersData(finalUsers);
+            setFilteredUsers(finalUsers);
             setBookingsData(realBookings);
             setFilteredBookings(realBookings);
             setUserStats(getUserStats());
             setStats({
-                totalUsers: users.length,
+                totalUsers: finalUsers.length,
                 totalBookings: realBookings.length,
                 revenue: totalRevenue,
                 activeHotels: hotels.length,
@@ -282,21 +236,18 @@ function AdminDashboard() {
                 monthlyRevenue,
             });
 
-            const analytics = generateAnalytics(realBookings, hotels);
-            setAnalyticsData(analytics);
-
             const activity = realBookings
                 .slice(-5)
                 .reverse()
                 .map((booking, index) => {
                     const hotel = hotels.find((h) => h.id === booking.hotelId);
-                    const userName = getUserName(booking.userId);
+                    const userName = booking.user?.name || booking.contactInfo?.name || getUserName(booking.userId);
                     return {
                         id: index + 1,
                         type: "booking",
                         user: userName,
-                        action: `Booked ${hotel?.name || booking.hotelName || "Hotel"} for ${booking.checkIn} to ${booking.checkOut}`,
-                        time: new Date(booking.bookingDate).toLocaleDateString(),
+                        action: `Booked ${hotel?.name || booking.hotelName || "Hotel"} for ${new Date(booking.checkIn).toLocaleDateString()} to ${new Date(booking.checkOut).toLocaleDateString()}`,
+                        time: new Date(booking.bookingDate || Date.now()).toLocaleDateString(),
                         status: booking.status === "confirmed" ? "success" : booking.status === "pending" ? "warning" : "error",
                     };
                 });
@@ -316,13 +267,14 @@ function AdminDashboard() {
                     ],
             );
         } catch (error) {
+            console.error(error);
             if (typeof toast === "function") {
                 toast({ title: "Failed to load dashboard data", variant: "destructive" });
             }
         } finally {
             setLoading(false);
         }
-    }, [generateSampleUsers, generateAnalytics, getUserName, toast]);
+    }, [getUserName, toast]);
 
     // User Management
     const handleAddUser = useCallback(async () => {
@@ -402,7 +354,8 @@ function AdminDashboard() {
                 const user = usersData.find((u) => u.id === userId);
                 if (!user) return;
                 const nextStatus = user.status === "active" ? "banned" : "active";
-                await setUserStatus(userId, nextStatus);
+                // Using updateUser instead of specialized setUserStatus if not available, or assume updateUser handles status
+                await updateUser(userId, { status: nextStatus });
                 await loadData();
                 toast.success(`User ${nextStatus === "banned" ? "banned" : "activated"} successfully`);
             } catch (error) {
@@ -432,7 +385,8 @@ function AdminDashboard() {
     const handleBookingStatusChange = useCallback(
         async (bookingId, newStatus) => {
             try {
-                await updateBookingStatus(bookingId, newStatus);
+                // Using updateBooking from services
+                await updateBooking(bookingId, { status: newStatus });
                 await loadData();
                 setSelectedBooking(null);
                 toast.success(`Booking status updated to ${newStatus}`);
@@ -443,70 +397,22 @@ function AdminDashboard() {
         [loadData, toast],
     );
 
-    const performCancellation = useCallback(
-        async (booking, isLateCancellation) => {
+    const handleCancelBooking = useCallback(
+        async (bookingId) => {
+            if (!window.confirm("Are you sure you want to cancel this booking?")) {
+                return;
+            }
             try {
-                await cancelBooking(booking.id);
-                const notified = notifyUserCancellation(booking);
-                if (notified) {
-                    window.dispatchEvent(
-                        new CustomEvent("booking:cancelled", {
-                            detail: {
-                                bookingId: booking.id,
-                                userId: booking.userId,
-                                notification: notified,
-                            },
-                        }),
-                    );
-                }
-                const activity = JSON.parse(localStorage.getItem("adminActivity") || "[]");
-                activity.unshift({
-                    id: Date.now(),
-                    type: "booking",
-                    user: "Admin",
-                    action: `Cancelled booking for ${getUserName(booking.userId)} at ${booking.hotelName}${isLateCancellation ? " (Late Cancellation)" : ""}`,
-                    time: new Date().toLocaleDateString(),
-                    status: "error",
-                });
-                localStorage.setItem("adminActivity", JSON.stringify(activity.slice(0, 10)));
+                // Using cancelBooking from services
+                await cancelBooking(bookingId);
                 await loadData();
                 setSelectedBooking(null);
-                toast.success(
-                    notified
-                        ? "Booking cancelled successfully. User has been notified and will receive their refund within 24 hours."
-                        : "Booking cancelled but user notification failed. Please contact them directly about the refund.",
-                );
+                toast.success("Booking cancelled successfully.");
             } catch (error) {
                 toast.error(error.message || "Failed to cancel booking. Please try again.");
             }
         },
-        [notifyUserCancellation, getUserName, loadData, toast],
-    );
-
-    const handleCancelBooking = useCallback(
-        async (bookingId) => {
-            const booking = bookingsData.find((b) => b.id === bookingId);
-            if (!booking) return;
-            const cancellationCheck = canCancelBooking(booking);
-            const userName = getUserName(booking.userId);
-            if (!cancellationCheck.canCancel) {
-                if (
-                    !window.confirm(
-                        `This booking is within 24 hours of check-in (${cancellationCheck.hoursRemaining.toFixed(1)} hours remaining). ` +
-                        `Cancelling may result in penalties for the guest. Are you sure you want to proceed?`,
-                    )
-                ) {
-                    return;
-                }
-                performCancellation(booking, true);
-            } else {
-                if (!window.confirm(`Are you sure you want to cancel this booking for ${userName}?`)) {
-                    return;
-                }
-                performCancellation(booking, false);
-            }
-        },
-        [bookingsData, canCancelBooking, getUserName, performCancellation],
+        [loadData, toast],
     );
 
     // Effects
@@ -728,7 +634,7 @@ function AdminDashboard() {
 
             <nav className="admin-nav">
                 <div className="admin-nav-content">
-                    {["overview", "bookings", "users", "hotels", "analytics", "chat"].map((tab) => (
+                    {["overview", "bookings", "users", "hotels", "chat"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -855,18 +761,6 @@ function AdminDashboard() {
                                         </div>
                                     </button>
 
-                                    <button className="admin-action-card" onClick={() => setActiveTab("analytics")}>
-                                        <div className="admin-action-icon">
-                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
-                                            </svg>
-                                        </div>
-                                        <div className="admin-action-content">
-                                            <h3>View Analytics</h3>
-                                            <p>Detailed reports & insights</p>
-                                        </div>
-                                    </button>
-
                                     <button className="admin-action-card" onClick={() => setShowHotelModal(true)}>
                                         <div className="admin-action-icon">
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -940,15 +834,19 @@ function AdminDashboard() {
                                     <tbody>
                                         {filteredBookings.map((booking) => {
                                             const hotel = hotelsData.find((h) => h.id === booking.hotelId);
-                                            const userName = getUserName(booking.userId);
+                                            // Robust user name resolution
+                                            const userName = booking.user?.name ||
+                                                booking.contactInfo?.name ||
+                                                getUserName(booking.userId || booking.user?._id || booking.user);
+
                                             const cancellationStatus = canCancelBooking(booking);
                                             return (
-                                                <tr key={booking.id}>
-                                                    <td>{booking.id}</td>
+                                                <tr key={booking.id || booking._id}>
+                                                    <td>{booking.id || booking._id}</td>
                                                     <td>{userName}</td>
                                                     <td>{hotel?.name || booking.hotelName || "Unknown Hotel"}</td>
-                                                    <td>{booking.checkIn}</td>
-                                                    <td>{booking.checkOut}</td>
+                                                    <td>{new Date(booking.checkIn).toLocaleDateString()}</td>
+                                                    <td>{new Date(booking.checkOut).toLocaleDateString()}</td>
                                                     <td>{formatCurrency(booking.totalPrice || 0, booking.currency || "INR")}</td>
                                                     <td>{getStatusBadge(booking.status)}</td>
                                                     <td>
@@ -1030,7 +928,6 @@ function AdminDashboard() {
                                             <th>ID</th>
                                             <th>Name</th>
                                             <th>Email</th>
-                                            <th>Join Date</th>
                                             <th>Bookings</th>
                                             <th>Status</th>
                                             <th>Actions</th>
@@ -1042,7 +939,6 @@ function AdminDashboard() {
                                                 <td>{user.id}</td>
                                                 <td>{user.name}</td>
                                                 <td>{user.email}</td>
-                                                <td>{new Date(user.joinDate).toLocaleDateString()}</td>
                                                 <td>{user.bookings}</td>
                                                 <td>
                                                     <span
@@ -1080,81 +976,7 @@ function AdminDashboard() {
                         </div>
                     )}
 
-                    {activeTab === "analytics" && (
-                        <div className="analytics-section">
-                            <h2>Analytics & Reports</h2>
-                            <div className="analytics-grid">
-                                <div className="analytics-card">
-                                    <h3>Monthly Bookings</h3>
-                                    <div className="chart-container">
-                                        {analyticsData.monthlyBookings.map((month, index) => (
-                                            <div key={index} className="chart-bar">
-                                                <div
-                                                    className="bar"
-                                                    style={{
-                                                        height: `${(month.bookings / Math.max(...analyticsData.monthlyBookings.map((m) => m.bookings), 1)) * 100}%`,
-                                                    }}
-                                                ></div>
-                                                <span className="bar-label">{month.month}</span>
-                                                <span className="bar-value">{month.bookings}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                <div className="analytics-card">
-                                    <h3>Revenue by City</h3>
-                                    <div className="revenue-list">
-                                        {analyticsData.revenueByCity.map((city, index) => (
-                                            <div key={index} className="revenue-item">
-                                                <span className="city-name">{city.city}</span>
-                                                <span className="city-revenue">{formatCurrency(city.revenue, "INR")}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="analytics-card">
-                                    <h3>Top Hotels</h3>
-                                    <div className="hotels-list">
-                                        {analyticsData.topHotels.map((hotel, index) => (
-                                            <div key={index} className="hotel-item">
-                                                <span className="hotel-name">{hotel.hotel}</span>
-                                                <span className="hotel-bookings">{hotel.bookings} bookings</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="analytics-card">
-                                    <h3>Quick Stats</h3>
-                                    <div className="quick-stats">
-                                        <div className="quick-stat">
-                                            <span className="stat-value">{formatCurrency(stats.monthlyRevenue, "INR")}</span>
-                                            <span className="stat-name">This Month Revenue</span>
-                                        </div>
-                                        <div className="quick-stat">
-                                            <span className="stat-value">
-                                                {stats.totalBookings > 0
-                                                    ? ((stats.confirmedBookings / stats.totalBookings) * 100).toFixed(1)
-                                                    : 0}
-                                                %
-                                            </span>
-                                            <span className="stat-name">Booking Success Rate</span>
-                                        </div>
-                                        <div className="quick-stat">
-                                            <span className="stat-value">
-                                                {stats.totalBookings > 0
-                                                    ? formatCurrency(stats.revenue / stats.totalBookings, "INR")
-                                                    : formatCurrency(0, "INR")}
-                                            </span>
-                                            <span className="stat-name">Avg. Booking Value</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {activeTab === "chat" && (
                         <div className="admin-section" style={{ padding: 0, background: 'transparent' }}>
@@ -1194,27 +1016,27 @@ function AdminDashboard() {
                                                 <td style={{ padding: '14px 12px', color: '#b8bcc8', fontWeight: 400, maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(hotel.amenities || []).join(', ')}</td>
                                                 <td style={{ padding: '14px 12px' }}>
                                                     <button className="btn btn-action" style={{ marginRight: 8, background: '#20c997', color: '#fff', borderRadius: 8, padding: '6px 16px', fontWeight: 600 }} onClick={() => { setShowHotelModal(true); setSelectedHotel(hotel); setHotelFormData({ ...hotel }); }}>Edit</button>
-                                                    <button className="btn btn-action btn-danger" style={{ background: '#ff6b35', color: '#fff', borderRadius: 8, padding: '6px 16px', fontWeight: 600 }} onClick={async () => { 
-                                                        if (window.confirm('Delete this hotel?')) { 
-                                                            setLoading(true); 
-                                                            try { 
-                                                                const hotelId = hotel.id || hotel._id; 
-                                                                if (!hotelId) { 
-                                                                    throw new Error('Hotel ID not found'); 
-                                                                } 
-                                                                const response = await deleteHotel(hotelId); 
-                                                                if (response && response.success) { 
-                                                                    await loadData(); 
-                                                                    if (toast && typeof toast.success === 'function') toast.success("Hotel deleted successfully!"); 
-                                                                } else { 
-                                                                    throw new Error(response?.message || "Failed to delete hotel"); 
-                                                                } 
+                                                    <button className="btn btn-action btn-danger" style={{ background: '#ff6b35', color: '#fff', borderRadius: 8, padding: '6px 16px', fontWeight: 600 }} onClick={async () => {
+                                                        if (window.confirm('Delete this hotel?')) {
+                                                            setLoading(true);
+                                                            try {
+                                                                const hotelId = hotel.id || hotel._id;
+                                                                if (!hotelId) {
+                                                                    throw new Error('Hotel ID not found');
+                                                                }
+                                                                const response = await deleteHotel(hotelId);
+                                                                if (response && response.success) {
+                                                                    await loadData();
+                                                                    if (toast && typeof toast.success === 'function') toast.success("Hotel deleted successfully!");
+                                                                } else {
+                                                                    throw new Error(response?.message || "Failed to delete hotel");
+                                                                }
                                                             } catch (error) {
                                                                 if (toast && typeof toast.error === 'function') toast.error(error.message || "Error deleting hotel");
                                                             } finally {
-                                                                setLoading(false); 
-                                                            } 
-                                                        } 
+                                                                setLoading(false);
+                                                            }
+                                                        }
                                                     }}>Delete</button>
                                                 </td>
                                             </tr>
@@ -1247,38 +1069,38 @@ function AdminDashboard() {
                                 <strong>Hotel:</strong>{" "}
                                 {hotelsData.find((h) => h.id === selectedBooking.hotelId)?.name || selectedBooking.hotelName}
                             </p>
-                                                        <p>
-                                                                <strong>Check-in:</strong> {(() => {
-                                                                    if (!selectedBooking.checkIn || typeof selectedBooking.checkIn !== 'string') return 'Invalid Date';
-                                                                    let date = new Date(selectedBooking.checkIn.includes('T') ? selectedBooking.checkIn : selectedBooking.checkIn + 'T00:00:00');
-                                                                    return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
-                                                                })()}
-                                                        </p>
-                                                        <p>
-                                                                <strong>Check-out:</strong> {(() => {
-                                                                    if (!selectedBooking.checkOut || typeof selectedBooking.checkOut !== 'string') return 'Invalid Date';
-                                                                    let date = new Date(selectedBooking.checkOut.includes('T') ? selectedBooking.checkOut : selectedBooking.checkOut + 'T00:00:00');
-                                                                    return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
-                                                                })()}
-                                                        </p>
-                                                        <p>
-                                                                <strong>Guests:</strong> {
-                                                                    typeof selectedBooking.guests === 'object' || selectedBooking.guests == null
-                                                                        ? '1 guest'
-                                                                        : selectedBooking.guests === '6+'
-                                                                            ? '6+ guests'
-                                                                            : `${selectedBooking.guests} guest${Number(selectedBooking.guests) > 1 ? 's' : ''}`
-                                                                }
-                                                        </p>
-                                                        <p>
-                                                                <strong>Amount:</strong>{" "}
-                                                                {(() => {
-                                                                    const amt = Number(selectedBooking.totalPrice);
-                                                                    return Number.isFinite(amt) && amt > 0
-                                                                        ? formatCurrency(amt, selectedBooking.currency || 'INR')
-                                                                        : '₹0';
-                                                                })()}
-                                                        </p>
+                            <p>
+                                <strong>Check-in:</strong> {(() => {
+                                    if (!selectedBooking.checkIn || typeof selectedBooking.checkIn !== 'string') return 'Invalid Date';
+                                    let date = new Date(selectedBooking.checkIn.includes('T') ? selectedBooking.checkIn : selectedBooking.checkIn + 'T00:00:00');
+                                    return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+                                })()}
+                            </p>
+                            <p>
+                                <strong>Check-out:</strong> {(() => {
+                                    if (!selectedBooking.checkOut || typeof selectedBooking.checkOut !== 'string') return 'Invalid Date';
+                                    let date = new Date(selectedBooking.checkOut.includes('T') ? selectedBooking.checkOut : selectedBooking.checkOut + 'T00:00:00');
+                                    return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+                                })()}
+                            </p>
+                            <p>
+                                <strong>Guests:</strong> {
+                                    typeof selectedBooking.guests === 'object' || selectedBooking.guests == null
+                                        ? '1 guest'
+                                        : selectedBooking.guests === '6+'
+                                            ? '6+ guests'
+                                            : `${selectedBooking.guests} guest${Number(selectedBooking.guests) > 1 ? 's' : ''}`
+                                }
+                            </p>
+                            <p>
+                                <strong>Amount:</strong>{" "}
+                                {(() => {
+                                    const amt = Number(selectedBooking.totalPrice);
+                                    return Number.isFinite(amt) && amt > 0
+                                        ? formatCurrency(amt, selectedBooking.currency || 'INR')
+                                        : '₹0';
+                                })()}
+                            </p>
                             <p>
                                 <strong>Current Status:</strong> {getStatusBadge(selectedBooking.status)}
                             </p>

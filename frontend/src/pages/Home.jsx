@@ -51,33 +51,18 @@ const Home = memo(() => {
     const fetchHotels = async () => {
       try {
         setIsLoading(true)
-        
+
         // Try to get featured hotels from backend first
         const featuredResult = await getFeaturedHotelsWithFallback(FEATURED_HOTEL_LIMIT)
         const featuredArr = Array.isArray(featuredResult) ? featuredResult : []
-        
+
         // If we got featured hotels from backend, use them
         if (featuredArr.length > 0) {
           setFeaturedHotels(featuredArr.slice(0, FEATURED_HOTEL_LIMIT))
           setHotelsList(featuredArr) // Use featured hotels as the main list for now
         } else {
-          // Fallback to local storage
-          const { getHotelsFromStorage } = await import("../data/hotels")
-          const result = await getHotelsFromStorage()
-          const hotelsArr = Array.isArray(result) ? result : []
-          setHotelsList(hotelsArr)
-
-          // Filter featured hotels with rating >= 4.5
-          let featured = hotelsArr.filter((hotel) => hotel.rating >= MIN_RATING)
-          // Fill with top-rated hotels if needed
-          if (featured.length < FEATURED_HOTEL_LIMIT) {
-            const additional = hotelsArr
-              .filter((hotel) => !featured.includes(hotel))
-              .sort((a, b) => b.rating - a.rating)
-              .slice(0, FEATURED_HOTEL_LIMIT - featured.length)
-            featured = [...featured, ...additional]
-          }
-          setFeaturedHotels(featured.slice(0, FEATURED_HOTEL_LIMIT))
+          setFeaturedHotels([])
+          setHotelsList([])
         }
       } catch {
         setError("Failed to load hotels. Please try again later.")

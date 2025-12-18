@@ -21,7 +21,7 @@ export const createBooking = async (bookingData) => {
 export const getUserBookings = async (filters = {}) => {
   try {
     const queryParams = new URLSearchParams();
-    
+
     // Add filters to query params
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -31,7 +31,7 @@ export const getUserBookings = async (filters = {}) => {
 
     const queryString = queryParams.toString();
     const path = queryString ? `/api/bookings?${queryString}` : '/api/bookings';
-    
+
     const response = await authenticatedApiFetch(path);
     return response;
   } catch (error) {
@@ -85,7 +85,7 @@ export const cancelBooking = async (id) => {
 export const getAllBookings = async (filters = {}) => {
   try {
     const queryParams = new URLSearchParams();
-    
+
     // Add filters to query params
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -95,7 +95,7 @@ export const getAllBookings = async (filters = {}) => {
 
     const queryString = queryParams.toString();
     const path = queryString ? `/api/bookings/admin/all?${queryString}` : '/api/bookings/admin/all';
-    
+
     const response = await authenticatedApiFetch(path);
     return response;
   } catch (error) {
@@ -115,19 +115,19 @@ export const getBookingsWithFallback = async (filters = {}) => {
     throw new Error('Backend response invalid');
   } catch (error) {
     console.warn('Backend fetch failed, falling back to local storage:', error);
-    
+
     // Fallback to local storage
     try {
       const { getBookings } = await import('../utils/bookings.js');
       const localBookings = getBookings();
-      
+
       // Apply basic filtering to local bookings
       let filteredBookings = Array.isArray(localBookings) ? localBookings : [];
-      
+
       if (filters.status && filters.status !== 'all') {
         filteredBookings = filteredBookings.filter(booking => booking.status === filters.status);
       }
-      
+
       return filteredBookings;
     } catch (fallbackError) {
       console.error('Fallback also failed:', fallbackError);
@@ -144,22 +144,9 @@ export const createBookingWithFallback = async (bookingData) => {
     if (response && response.success) {
       return response;
     }
-    throw new Error('Backend response invalid');
+    throw new Error(response.message || 'Backend response invalid');
   } catch (error) {
-    console.warn('Backend booking creation failed, using fallback:', error);
-    
-    // Fallback to local storage
-    try {
-      const { addBooking } = await import('../utils/bookings.js');
-      const localResponse = await addBooking(bookingData);
-      return {
-        success: true,
-        message: 'Booking created locally (offline mode)',
-        data: localResponse
-      };
-    } catch (fallbackError) {
-      console.error('Fallback booking creation also failed:', fallbackError);
-      throw fallbackError;
-    }
+    console.error('Backend booking creation failed:', error);
+    throw error;
   }
 };

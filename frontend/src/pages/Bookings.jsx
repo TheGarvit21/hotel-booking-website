@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { getCurrentUser } from '../utils/auth';
-import { canCancelBooking, getBookings, getCancellationDeadline, updateBookingStatus, migrateBookingsStorage } from '../utils/bookings';
+import { canCancelBooking, getCancellationDeadline, migrateBookingsStorage } from '../utils/bookings';
 import { formatPriceINR } from '../utils/currency';
 
 const Bookings = () => {
@@ -69,14 +69,15 @@ const Bookings = () => {
     if (!selectedBooking) return;
 
     try {
-      // --- FETCH LOGIC (commented) ---
-      // await fetch(`/api/bookings/${selectedBooking.id}`, { method: 'DELETE' });
-      // --- END FETCH LOGIC ---
-      // Update status to cancelled instead of deleting, so it shows up in Cancelled filter
-      await updateBookingStatus(selectedBooking.id, 'cancelled');
-      // Refresh state from storage for consistency
-      const refreshed = getBookings(user.id);
-      setBookings(refreshed);
+      // Cancel booking via API
+      const { cancelBooking, getUserBookings } = await import('../services/bookings');
+      await cancelBooking(selectedBooking.id);
+
+      // Refresh state from backend
+      const response = await getUserBookings();
+      if (response && response.success && Array.isArray(response.data)) {
+        setBookings(response.data);
+      }
 
       // Animate the change
       gsap.fromTo(bookingsRef.current,
@@ -441,14 +442,14 @@ const Bookings = () => {
         const hotels = JSON.parse(localStorage.getItem('hotels') || '[]');
         const hotel = hotels.find(h => h.id === booking.hotelId || h._id === booking.hotelId);
         if (hotel && hotel.images && hotel.images.length > 0) imageSrc = hotel.images[0];
-      } catch {}
+      } catch { }
     }
     if (!imageSrc && booking.hotelName) {
       try {
         const hotels = JSON.parse(localStorage.getItem('hotels') || '[]');
         const hotel = hotels.find(h => h.name === booking.hotelName);
         if (hotel && hotel.images && hotel.images.length > 0) imageSrc = hotel.images[0];
-      } catch {}
+      } catch { }
     }
     if (!imageSrc) imageSrc = "/placeholder.svg?height=160&width=280";
     return (
@@ -520,16 +521,16 @@ const Bookings = () => {
               <strong>Check-out</strong>
               <div>{formatDate(booking.checkOut)}</div>
             </div>
-              <div className="booking-detail metric">
-                <strong>Guests</strong>
-                <div>{
-                  typeof booking.guests === 'object' || booking.guests == null
-                    ? '1 guest'
-                    : booking.guests === '6+'
-                      ? '6+ guests'
-                      : `${booking.guests} guest${Number(booking.guests) > 1 ? 's' : ''}`
-                }</div>
-              </div>
+            <div className="booking-detail metric">
+              <strong>Guests</strong>
+              <div>{
+                typeof booking.guests === 'object' || booking.guests == null
+                  ? '1 guest'
+                  : booking.guests === '6+'
+                    ? '6+ guests'
+                    : `${booking.guests} guest${Number(booking.guests) > 1 ? 's' : ''}`
+              }</div>
+            </div>
             <div className="booking-detail metric">
               <strong>Breakdown</strong>
               <div style={{ fontSize: '13px', color: 'var(--text-gray)', marginTop: '4px' }}>

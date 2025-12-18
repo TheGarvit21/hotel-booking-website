@@ -88,14 +88,28 @@ const getAllHotels = async (req, res) => {
   }
 };
 
+const mongoose = require('mongoose');
+
 // @desc    Get hotel by ID
 // @route   GET /api/hotels/:id
 // @access  Public
 const getHotelById = async (req, res) => {
   try {
-    const hotel = await Hotel.findById(req.params.id)
-      .populate('createdBy', 'name email')
-      .lean();
+    const { id } = req.params;
+    let hotel;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      hotel = await Hotel.findById(id)
+        .populate('createdBy', 'name email')
+        .lean();
+    } else {
+      // If not a valid ObjectId, try finding by name
+      // The frontend might be sending the name as the ID
+      const name = decodeURIComponent(id);
+      hotel = await Hotel.findOne({ name: new RegExp(`^${name}$`, 'i') })
+        .populate('createdBy', 'name email')
+        .lean();
+    }
 
     if (!hotel) {
       return res.status(404).json({
@@ -352,10 +366,10 @@ const getHotelsByCity = async (req, res) => {
       status: 'active',
       available: true
     })
-    .sort({ rating: -1 })
-    .limit(Number(limit))
-    .populate('createdBy', 'name email')
-    .lean();
+      .sort({ rating: -1 })
+      .limit(Number(limit))
+      .populate('createdBy', 'name email')
+      .lean();
 
     res.json({
       success: true,
@@ -382,10 +396,10 @@ const getFeaturedHotels = async (req, res) => {
       status: 'active',
       available: true
     })
-    .sort({ rating: -1 })
-    .limit(Number(limit))
-    .populate('createdBy', 'name email')
-    .lean();
+      .sort({ rating: -1 })
+      .limit(Number(limit))
+      .populate('createdBy', 'name email')
+      .lean();
 
     res.json({
       success: true,

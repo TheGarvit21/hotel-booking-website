@@ -310,11 +310,8 @@ const Hotels = () => {
             const searchResultsRaw = await searchHotelsAPI(filters.location, filters.city)
             searchResults = Array.isArray(searchResultsRaw?.data) ? searchResultsRaw.data : []
           } catch (searchError) {
-            console.warn("API search failed, using local search:", searchError)
-            // Fallback to local search
-            const { searchHotels: localSearch } = await import("../data/hotels")
-            const localResults = await localSearch(filters.location)
-            searchResults = Array.isArray(localResults) ? localResults : []
+            console.error("API search failed:", searchError)
+            searchResults = []
           }
         }
 
@@ -393,7 +390,7 @@ const Hotels = () => {
     const filterHotels = async () => {
       try {
         let filtered = hotels
-        
+
         // Apply additional client-side filters if needed
         filtered = filtered.filter((hotel) => {
           const matchesMinPrice = filters.minPrice === 0 || hotel.price >= filters.minPrice
@@ -402,7 +399,7 @@ const Hotels = () => {
           const matchesRating = hotel.rating >= filters.minRating || filters.minRating === 0
           return matchesPrice && matchesRating
         })
-        
+
         setFilteredHotels(applySort(filtered, sortBy))
       } catch (error) {
         console.error("Error filtering hotels:", error)
@@ -1640,12 +1637,12 @@ const Hotels = () => {
                             ? "rgba(253, 126, 20, 0.15)"
                             : "rgba(220, 53, 69, 0.15)",
                     border: `1px solid ${filters.minRating === 0
-                        ? "rgba(108, 117, 125, 0.3)"
-                        : filters.minRating === 3
-                          ? "rgba(255, 193, 7, 0.3)"
-                          : filters.minRating === 4
-                            ? "rgba(253, 126, 20, 0.3)"
-                            : "rgba(220, 53, 69, 0.3)"
+                      ? "rgba(108, 117, 125, 0.3)"
+                      : filters.minRating === 3
+                        ? "rgba(255, 193, 7, 0.3)"
+                        : filters.minRating === 4
+                          ? "rgba(253, 126, 20, 0.3)"
+                          : "rgba(220, 53, 69, 0.3)"
                       }`,
                     borderRadius: "10px",
                     backdropFilter: "blur(10px)",

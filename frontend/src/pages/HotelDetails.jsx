@@ -65,18 +65,18 @@ const HotelDetails = () => {
     const fetchHotel = async () => {
       try {
         setLoading(true);
-        
+
         // Try to get hotel by ID or name
         let found = null;
         const decodedName = decodeURIComponent(name);
-        
+
         // First try to get by ID (could be numeric or MongoDB ObjectId)
         try {
           found = await getHotelByIdWithFallback(decodedName);
         } catch (error) {
           console.log('Failed to fetch by ID, trying by name:', error);
         }
-        
+
         // If not found by ID, try to find by name
         if (!found) {
           try {
@@ -85,14 +85,11 @@ const HotelDetails = () => {
             const hotels = await getHotelsWithFallback();
             found = hotels.find(h => h.name === decodedName);
           } catch (error) {
-            console.log('Failed to fetch by name from backend, trying local storage:', error);
-            // Final fallback to local storage
-            const { getHotelsFromStorage } = await import('../data/hotels');
-            const hotels = await getHotelsFromStorage();
-            found = hotels.find(h => h.name === decodedName);
+            console.log('Failed to fetch by name from backend:', error);
+            found = null;
           }
         }
-        
+
         // Ensure hotel.image and hotel.images[0] are always in sync for new hotels
         if (found && found.images && found.images.length === 1 && found.image !== found.images[0]) {
           found.images[0] = found.image;

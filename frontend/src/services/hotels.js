@@ -4,7 +4,7 @@ import { apiFetch, publicApiFetch, authenticatedApiFetch } from './apiClient.js'
 export const getHotels = async (filters = {}) => {
   try {
     const queryParams = new URLSearchParams();
-    
+
     // Add filters to query params
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -14,7 +14,7 @@ export const getHotels = async (filters = {}) => {
 
     const queryString = queryParams.toString();
     const path = queryString ? `/api/hotels?${queryString}` : '/api/hotels';
-    
+
     const response = await publicApiFetch(path);
     return response;
   } catch (error) {
@@ -127,49 +127,8 @@ export const getHotelsWithFallback = async (filters = {}) => {
     }
     throw new Error('Backend response invalid');
   } catch (error) {
-    console.warn('Backend fetch failed, falling back to local storage:', error);
-    
-    // Fallback to local storage
-    try {
-      const { getHotelsFromStorage } = await import('../data/hotels.js');
-      const localHotels = await getHotelsFromStorage();
-      
-      // Apply basic filtering to local hotels
-      let filteredHotels = localHotels;
-      
-      if (filters.city) {
-        filteredHotels = filteredHotels.filter(hotel => 
-          hotel.city.toLowerCase().includes(filters.city.toLowerCase())
-        );
-      }
-      
-      if (filters.minPrice) {
-        filteredHotels = filteredHotels.filter(hotel => 
-          hotel.price >= Number(filters.minPrice)
-        );
-      }
-      
-      if (filters.maxPrice) {
-        filteredHotels = filteredHotels.filter(hotel => 
-          hotel.price <= Number(filters.maxPrice)
-        );
-      }
-      
-      if (filters.minRating) {
-        filteredHotels = filteredHotels.filter(hotel => 
-          hotel.rating >= Number(filters.minRating)
-        );
-      }
-      
-      if (filters.featured === 'true') {
-        filteredHotels = filteredHotels.filter(hotel => hotel.featured);
-      }
-      
-      return filteredHotels;
-    } catch (localError) {
-      console.error('Local storage fallback also failed:', localError);
-      return [];
-    }
+    console.error('Backend fetch failed:', error);
+    return [];
   }
 };
 
@@ -186,15 +145,8 @@ export const getFeaturedHotelsWithFallback = async (limit = 12) => {
     }
     throw new Error('Backend response invalid');
   } catch (error) {
-    console.warn('Backend featured hotels fetch failed, falling back to local storage:', error);
-    
-    try {
-      const { getFeaturedHotels } = await import('../data/hotels.js');
-      return await getFeaturedHotels();
-    } catch (localError) {
-      console.error('Local storage fallback also failed:', localError);
-      return [];
-    }
+    console.error('Backend featured hotels fetch failed:', error);
+    return [];
   }
 };
 
@@ -211,14 +163,7 @@ export const getHotelByIdWithFallback = async (id) => {
     }
     throw new Error('Backend response invalid');
   } catch (error) {
-    console.warn('Backend hotel fetch failed, falling back to local storage:', error);
-    
-    try {
-      const { getHotelById } = await import('../data/hotels.js');
-      return await getHotelById(id);
-    } catch (localError) {
-      console.error('Local storage fallback also failed:', localError);
-      return null;
-    }
+    console.error('Backend hotel fetch failed:', error);
+    return null;
   }
 };

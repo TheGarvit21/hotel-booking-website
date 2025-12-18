@@ -55,7 +55,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-app.use(rateLimiter);
+// app.use(rateLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -106,26 +106,26 @@ app.use('*', (req, res) => {
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
-    
+
     if (!token) {
       return next(new Error('Authentication error: No token provided'));
     }
-    
+
     const decoded = verifyToken(token);
     if (!decoded) {
       return next(new Error('Authentication error: Invalid token'));
     }
-    
+
     const user = await User.findById(decoded.userId).select('-password');
     if (!user) {
       return next(new Error('Authentication error: User not found'));
     }
-    
+
     socket.userId = user._id.toString();
     socket.userName = user.name || user.email.split('@')[0];
     socket.userEmail = user.email;
     socket.userRole = user.role || 'user';
-    
+
     next();
   } catch (error) {
     next(new Error('Authentication error: ' + error.message));
@@ -135,26 +135,26 @@ io.use(async (socket, next) => {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.userName} (${socket.userId})`);
-  
+
   // Join user's personal room
   socket.join(`user_${socket.userId}`);
-  
+
   // If admin, join admin room
   if (socket.userRole === 'admin') {
     socket.join('admin_room');
     console.log(`Admin connected: ${socket.userName}`);
   }
-  
+
   // Handle user sending message
   socket.on('user_message', async (data) => {
     try {
       const { message } = data;
-      
+
       if (!message || !message.trim()) {
         socket.emit('error', { message: 'Message cannot be empty' });
         return;
       }
-      
+
       // Save message to database
       const result = await chatController.addMessage(
         socket.userId,
@@ -163,7 +163,7 @@ io.on('connection', (socket) => {
         message.trim(),
         'user'
       );
-      
+
       // Emit to user's own room
       io.to(`user_${socket.userId}`).emit('new_message', {
         userId: socket.userId,
@@ -172,7 +172,7 @@ io.on('connection', (socket) => {
         sender: 'user',
         timestamp: result.message.timestamp
       });
-      
+
       // Notify admin room
       io.to('admin_room').emit('new_user_message', {
         userId: socket.userId,
@@ -187,7 +187,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to send message' });
     }
   });
-  
+
   // Handle admin sending message
   socket.on('admin_message', async (data) => {
     try {
@@ -195,21 +195,21 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Admin access required' });
         return;
       }
-      
+
       const { userId, message } = data;
-      
+
       if (!userId || !message || !message.trim()) {
         socket.emit('error', { message: 'Invalid message data' });
         return;
       }
-      
+
       // Get user info
       const user = await User.findById(userId).select('name email');
       if (!user) {
         socket.emit('error', { message: 'User not found' });
         return;
       }
-      
+
       // Save message to database
       const result = await chatController.addMessage(
         userId,
@@ -218,10 +218,10 @@ io.on('connection', (socket) => {
         message.trim(),
         'admin'
       );
-      
+
       // Mark as read
       await chatController.markAsRead(userId);
-      
+
       // Emit to user's room
       io.to(`user_${userId}`).emit('new_message', {
         userId: userId,
@@ -230,7 +230,7 @@ io.on('connection', (socket) => {
         sender: 'admin',
         timestamp: result.message.timestamp
       });
-      
+
       // Emit to admin room
       io.to('admin_room').emit('admin_message_sent', {
         userId: userId,
@@ -242,7 +242,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to send message' });
     }
   });
-  
+
   // Handle admin requesting chat list
   socket.on('get_chats', async () => {
     try {
@@ -250,7 +250,7 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Admin access required' });
         return;
       }
-      
+
       const chats = await chatController.getAllChats();
       socket.emit('chats_list', chats);
     } catch (error) {
@@ -258,7 +258,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to get chats' });
     }
   });
-  
+
   // Handle user requesting their chat history
   socket.on('get_chat_history', async () => {
     try {
@@ -269,7 +269,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to get chat history' });
     }
   });
-  
+
   // Handle admin marking messages as read
   socket.on('mark_read', async (data) => {
     try {
@@ -277,10 +277,10 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Admin access required' });
         return;
       }
-      
+
       const { userId } = data;
       await chatController.markAsRead(userId);
-      
+
       // Notify admin room
       io.to('admin_room').emit('messages_read', { userId });
     } catch (error) {
@@ -288,7 +288,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to mark as read' });
     }
   });
-  
+
   // Handle disconnect
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.userName} (${socket.userId})`);

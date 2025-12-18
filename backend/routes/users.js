@@ -1,26 +1,21 @@
 const express = require('express');
-const { authenticate, requireAdmin } = require('../middlewares/auth');
-
 const router = express.Router();
+const { authenticate, requireAdmin } = require('../middlewares/auth');
+const {
+  getAllUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  deleteUser,
+  getUserStats
+} = require('../controllers/userController');
 
-// Get all users (admin only)
-router.get('/', authenticate, requireAdmin, (req, res) => {
-  res.json({ message: 'Get all users - Admin only' });
-});
-
-// Get user by ID (admin or own profile)
-router.get('/:id', authenticate, (req, res) => {
-  res.json({ message: 'Get user by ID' });
-});
-
-// Update user (admin or own profile)
-router.put('/:id', authenticate, (req, res) => {
-  res.json({ message: 'Update user' });
-});
-
-// Delete user (admin only)
-router.delete('/:id', authenticate, requireAdmin, (req, res) => {
-  res.json({ message: 'Delete user - Admin only' });
-});
+// Admin routes
+router.get('/', authenticate, requireAdmin, getAllUsers);
+router.post('/', authenticate, requireAdmin, createUser);
+router.get('/stats', authenticate, requireAdmin, getUserStats);
+router.get('/:id', authenticate, requireAdmin, getUserById);
+router.put('/:id', authenticate, requireAdmin, updateUser);
+router.delete('/:id', authenticate, requireAdmin, deleteUser);
 
 module.exports = router;

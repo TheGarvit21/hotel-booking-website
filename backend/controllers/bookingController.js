@@ -33,9 +33,18 @@ const getUserBookings = async (req, res) => {
 
     const total = await Booking.countDocuments(filter);
 
+    // Attach hotelName and hotelLocation for each booking to match frontend expectations
+    const bookingsWithDetails = bookings.map(b => {
+      const obj = b.toObject();
+      obj.hotelName = b.hotel?.name || '';
+      obj.hotelLocation = b.hotel?.location || '';
+      obj.hotelImage = (b.hotel?.images && b.hotel.images.length > 0) ? b.hotel.images[0] : (b.hotel?.image || obj.hotelImage || '');
+      return obj;
+    });
+
     res.json({
       success: true,
-      data: bookings,
+      data: bookingsWithDetails,
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
