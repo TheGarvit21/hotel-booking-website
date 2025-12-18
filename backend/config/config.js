@@ -22,7 +22,7 @@ module.exports = {
   rateLimitMessage: process.env.RATE_LIMIT_MESSAGE,
 
   // Frontend URL
-  frontendUrl: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : ['http://localhost:5173'],
+  frontendUrl: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : ['https://hotel-booking-website-steel-one.vercel.app'],
 
   mail: {
     host: process.env.SMTP_HOST || null,
