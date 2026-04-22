@@ -8,11 +8,7 @@ const User = require('../models/User');
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(
-      process.env.MONGODB_URI || 'mongodb://localhost:27017/hotelbooking',
-      {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      }
+      process.env.MONGODB_URI || 'mongodb://localhost:27017/hotelbooking'
     );
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     return conn;

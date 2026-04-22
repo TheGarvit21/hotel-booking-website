@@ -1854,175 +1854,146 @@ const Hotels = () => {
         />
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          style={{ marginBottom: "32px", position: "relative", zIndex: 1 }}
         >
-          {filteredHotels.length === 0 ? (
-            <div style={{ padding: "80px 0", textAlign: "center" }}>
-              <h3
-                style={{
-                  marginBottom: "16px",
-                  fontSize: "28px",
-                  fontFamily: "Playfair Display, serif",
-                  color: "#ffffff",
-                }}
-              >
-                No hotels found
-              </h3>
-              <p style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "18px" }}>
-                Try adjusting your filters or search criteria
-              </p>
-            </div>
-          ) : viewMode === "slider" ? (
-            <div style={{ position: "relative", padding: "0 60px" }}>
-              <div
-                ref={swiperPrevRef}
-                style={{
-                  position: "absolute",
-                  left: "0",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: "48px",
-                  height: "48px",
-                  background: "rgba(255, 107, 53, 0.9)",
-                  color: "#ffffff",
-                  borderRadius: "50%",
-                  display: filteredHotels.length > 1 ? "flex" : "none",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  zIndex: 10,
-                  transition: "all 0.3s ease",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = "#ff6b35"
-                  e.target.style.transform = "translateY(-50%) scale(1.1)"
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = "rgba(255, 107, 53, 0.9)"
-                  e.target.style.transform = "translateY(-50%) scale(1)"
-                }}
-              >
-                <span style={{ fontSize: "24px" }}>←</span>
-              </div>
-              <div
-                ref={swiperNextRef}
-                style={{
-                  position: "absolute",
-                  right: "0",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: "48px",
-                  height: "48px",
-                  background: "rgba(255, 107, 53, 0.9)",
-                  color: "#ffffff",
-                  borderRadius: "50%",
-                  display: filteredHotels.length > 1 ? "flex" : "none",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  zIndex: 10,
-                  transition: "all 0.3s ease",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = "#ff6b35"
-                  e.target.style.transform = "translateY(-50%) scale(1.1)"
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = "rgba(255, 107, 53, 0.9)"
-                  e.target.style.transform = "translateY(-50%) scale(1)"
-                }}
-              >
-                <span style={{ fontSize: "24px" }}>→</span>
-              </div>
-              <Swiper
-                modules={[Navigation, Pagination]}
-                spaceBetween={24}
-                slidesPerView={Math.min(filteredHotels.length, 4)}
-                navigation={{
-                  prevEl: swiperPrevRef.current,
-                  nextEl: swiperNextRef.current,
-                }}
-                pagination={{
-                  clickable: true,
-                  dynamicBullets: true,
-                  dynamicMainBullets: 3,
-                  bulletClass: "swiper-bullet",
-                  bulletActiveClass: "swiper-bullet-active",
-                  renderBullet: (index, className) => {
-                    return `<span class="${className}" style="
-                      width: 10px;
-                      height: 10px;
-                      background: rgba(255, 107, 53, 0.5);
-                      border-radius: 50%;
-                      display: inline-block;
-                      margin: 0 4px;
-                      cursor: pointer;
-                      transition: all 0.3s ease;
-                    "></span>`
-                  },
-                }}
-                onBeforeInit={(swiper) => {
-                  swiper.params.navigation.prevEl = swiperPrevRef.current
-                  swiper.params.navigation.nextEl = swiperNextRef.current
-                }}
-                breakpoints={{
-                  320: { slidesPerView: 1 },
-                  640: { slidesPerView: Math.min(filteredHotels.length, 2) },
-                  1024: { slidesPerView: Math.min(filteredHotels.length, 3) },
-                  1280: { slidesPerView: Math.min(filteredHotels.length, 4) },
-                }}
-                style={{
-                  padding: "16px 0",
-                  "--swiper-pagination-bottom": "0px",
-                  "--swiper-pagination-bullet-inactive-color": "rgba(255, 107, 53, 0.3)",
-                  "--swiper-pagination-bullet-inactive-opacity": "1",
-                  "--swiper-pagination-bullet-size": "10px",
-                  "--swiper-pagination-bullet-horizontal-gap": "4px",
-                }}
-              >
-                {filteredHotels.map((hotel, index) => (
-                  <SwiperSlide key={`${hotel.id}-${index}`}>
-                    <HotelCard
-                      hotel={hotel}
-                      currency={currentCurrency}
-                      checkIn={searchState.checkIn}
-                      checkOut={searchState.checkOut}
-                      guests={searchState.guests}
-                      style={{
-                        width: "100%",
-                        maxWidth: "360px",
-                        margin: "0 auto",
-                      }}
-                    />
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                gap: "24px",
+          <h2
+            style={{ fontFamily: "Playfair Display, serif", fontSize: "32px", marginBottom: "16px", color: "#ffffff" }}
+          >
+            {filteredHotels.length} Hotels Found
+            {filters.city && ` in ${filters.city}`}
+            {filters.location && !filters.city && ` matching "${filters.location}"`}
+          </h2>
+        </motion.div>
+
+        <CustomCalendar
+          isOpen={activeCalendar === "checkIn"}
+          onClose={() => setActiveCalendar(null)}
+          onDateSelect={(date) => handleDateSelect("checkIn", date)}
+          selectedDate={searchState.checkIn}
+          excludeDate={searchState.checkOut}
+        />
+
+        <CustomCalendar
+          isOpen={activeCalendar === "checkOut"}
+          onClose={() => setActiveCalendar(null)}
+          onDateSelect={(date) => handleDateSelect("checkOut", date)}
+          selectedDate={searchState.checkOut}
+          excludeDate={searchState.checkIn}
+        />
+
+        {viewMode === "grid" ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+              gap: "24px",
+              marginBottom: "40px",
+            }}
+          >
+            {filteredHotels.map((hotel, index) => (
+              <HotelCard
+                key={hotel.id || index}
+                hotel={hotel}
+                index={index}
+                searchState={searchState}
+              />
+            ))}
+          </div>
+        ) : (
+          <div style={{ marginBottom: "40px" }}>
+            <Swiper
+              modules={[Navigation, Pagination]}
+              spaceBetween={20}
+              slidesPerView={1}
+              navigation
+              pagination={{ clickable: true }}
+              breakpoints={{
+                640: { slidesPerView: 2 },
+                1024: { slidesPerView: 3 },
+                1400: { slidesPerView: 4 },
               }}
+              style={{ padding: "20px 0" }}
             >
               {filteredHotels.map((hotel, index) => (
-                <HotelCard
-                  key={`${hotel.id}-${index}`}
-                  hotel={hotel}
-                  currency={currentCurrency}
-                  checkIn={searchState.checkIn}
-                  checkOut={searchState.checkOut}
-                  guests={searchState.guests}
-                />
+                <SwiperSlide key={hotel.id || index}>
+                  <HotelCard
+                    hotel={hotel}
+                    index={index}
+                    searchState={searchState}
+                  />
+                </SwiperSlide>
               ))}
-            </div>
-          )}
-        </motion.div>
+            </Swiper>
+          </div>
+        )}
+
+        {filteredHotels.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            style={{
+              textAlign: "center",
+              padding: "80px 20px",
+              background: "rgba(26, 31, 58, 0.95)",
+              borderRadius: "20px",
+              border: "1px solid rgba(255, 107, 53, 0.2)",
+              backdropFilter: "blur(20px)",
+              marginBottom: "40px",
+            }}
+          >
+            <div style={{ fontSize: "64px", marginBottom: "20px" }}></div>
+            <h3
+              style={{
+                fontSize: "28px",
+                fontWeight: "700",
+                color: "#ffffff",
+                marginBottom: "12px",
+                fontFamily: "Playfair Display, serif",
+              }}
+            >
+              No Hotels Found
+            </h3>
+            <p
+              style={{
+                fontSize: "16px",
+                color: "rgba(255, 255, 255, 0.7)",
+                marginBottom: "24px",
+                maxWidth: "500px",
+                margin: "0 auto 24px",
+              }}
+            >
+              We couldn't find any hotels matching your criteria. Try adjusting your filters or search terms.
+            </p>
+            <button
+              onClick={resetFilters}
+              style={{
+                padding: "14px 28px",
+                fontSize: "16px",
+                fontWeight: "600",
+                borderRadius: "12px",
+                border: "2px solid #ff6b35",
+                background: "rgba(255, 107, 53, 0.1)",
+                color: "#ff6b35",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = "#ff6b35"
+                e.target.style.color = "white"
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "rgba(255, 107, 53, 0.1)"
+                e.target.style.color = "#ff6b35"
+              }}
+            >
+              Reset Filters
+            </button>
+          </motion.div>
+        )}
       </div>
     </div>
   )
