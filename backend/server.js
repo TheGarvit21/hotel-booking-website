@@ -82,8 +82,23 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  try {
+    const collections = mongoose.connection.db ? await mongoose.connection.db.listCollections().toArray() : [];
+    const indexes = mongoose.connection.db ? await mongoose.connection.db.collection('users').indexes() : [];
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      collections: collections.map(c => c.name),
+      usersIndexes: indexes
+    });
+  } catch (error) {
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      error: error.message 
+    });
+  }
 });
 
 // Error handling middleware

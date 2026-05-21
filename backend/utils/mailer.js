@@ -38,15 +38,12 @@ async function createTransporter() {
                 }
             });
             
-            // Verify transporter connection with timeout
-            console.log('Verifying SMTP connection...');
-            await Promise.race([
-                transporter.verify(),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('SMTP verification timeout')), 15000)
-                )
-            ]);
-            console.log('SMTP transporter verified successfully');
+            // Verify transporter connection in the background so it doesn't block API requests
+            console.log('Verifying SMTP connection in the background...');
+            transporter.verify()
+                .then(() => console.log('✅ SMTP transporter verified successfully'))
+                .catch(err => console.error('❌ SMTP transporter verification failed:', err.message));
+
             return transporter;
         } catch (error) {
             console.error('SMTP transporter error:', error.message);

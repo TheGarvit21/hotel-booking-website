@@ -102,7 +102,12 @@ const register = async (req, res) => {
 
     if (error.code === 11000) {
       return res.status(400).json({
-        error: { message: 'User with this email already exists' }
+        error: { 
+          message: 'User registration failed due to duplicate key',
+          details: error.message,
+          keyValue: error.keyValue,
+          keyPattern: error.keyPattern
+        }
       });
     }
 
