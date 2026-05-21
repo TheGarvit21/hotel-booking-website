@@ -83,7 +83,8 @@ export const registerUser = async (userData) => {
   try {
     const response = await apiFetch('/api/auth/register', {
       method: 'POST',
-      body: userData
+      body: userData,
+      skipAuth: true
     });
 
     if (response.success) {
@@ -108,7 +109,8 @@ export const loginUser = async (email, password) => {
   try {
     const response = await apiFetch('/api/auth/login', {
       method: 'POST',
-      body: { email, password }
+      body: { email, password },
+      skipAuth: true
     });
 
     if (response.success) {
@@ -138,7 +140,8 @@ export const refreshAccessToken = async () => {
 
     const response = await apiFetch('/api/auth/refresh-token', {
       method: 'POST',
-      body: { refreshToken }
+      body: { refreshToken },
+      skipAuth: true
     });
 
     if (response.success) {
@@ -164,7 +167,8 @@ export const logout = async () => {
       // Call logout endpoint (optional, for server-side cleanup)
       await apiFetch('/api/auth/logout', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` }
+        headers: { Authorization: `Bearer ${accessToken}` },
+        skipAuth: true
       });
     }
   } catch (error) {
