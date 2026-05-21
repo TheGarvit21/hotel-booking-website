@@ -1,81 +1,22 @@
 // auth.js - Backend API Authentication Module
 import { apiFetch } from '../services/apiClient.js';
 
-// Storage keys for tokens
-const STORAGE_KEYS = {
-  accessToken: 'accessToken',
-  refreshToken: 'refreshToken',
-  user: 'user'
-};
+import { 
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  clearTokens,
+  getStoredUser as getCurrentUser,
+  setStoredUser as setCurrentUser,
+  refreshAccessToken
+} from './tokenManager.js';
 
-// Private in-memory cache
-let cachedUser = null;
-let cachedAccessToken = null;
-
-// Token management
-const getStoredTokens = () => {
-  const accessToken = localStorage.getItem(STORAGE_KEYS.accessToken);
-  const refreshToken = localStorage.getItem(STORAGE_KEYS.refreshToken);
-  return { accessToken, refreshToken };
-};
-
-const setStoredTokens = (accessToken, refreshToken) => {
-  if (accessToken) localStorage.setItem(STORAGE_KEYS.accessToken, accessToken);
-  if (refreshToken) localStorage.setItem(STORAGE_KEYS.refreshToken, refreshToken);
-};
-
-const clearStoredTokens = () => {
-  localStorage.removeItem(STORAGE_KEYS.accessToken);
-  localStorage.removeItem(STORAGE_KEYS.refreshToken);
-  localStorage.removeItem(STORAGE_KEYS.user);
-};
-
-// Get current user from cache or storage
-export const getCurrentUser = async () => {
-  if (cachedUser) return cachedUser;
-  
-  const storedUser = localStorage.getItem(STORAGE_KEYS.user);
-  if (storedUser) {
-    try {
-      cachedUser = JSON.parse(storedUser);
-      return cachedUser;
-    } catch (error) {
-      console.error('Failed to parse stored user:', error);
-      clearStoredTokens();
-      return null;
-    }
-  }
-  
-  return null;
-};
-
-// Set current user in cache and storage
-export const setCurrentUser = (user) => {
-  if (!user || typeof user !== 'object') {
-    console.error('Invalid user object');
-    return;
-  }
-
-  cachedUser = user;
-  localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
-  
-  // Broadcast auth change event
-  window.dispatchEvent(new CustomEvent('auth:change', { detail: { user } }));
-};
-
-// Get access token
-export const getAccessToken = () => {
-  if (cachedAccessToken) return cachedAccessToken;
-  
-  const { accessToken } = getStoredTokens();
-  cachedAccessToken = accessToken;
-  return accessToken;
-};
-
-// Set tokens
-export const setTokens = (accessToken, refreshToken) => {
-  cachedAccessToken = accessToken;
-  setStoredTokens(accessToken, refreshToken);
+export {
+  getAccessToken,
+  getCurrentUser,
+  setCurrentUser,
+  setTokens,
+  refreshAccessToken
 };
 
 // User registration
@@ -130,39 +71,10 @@ export const loginUser = async (email, password) => {
   }
 };
 
-// Refresh token
-export const refreshAccessToken = async () => {
-  try {
-    const { refreshToken } = getStoredTokens();
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const response = await apiFetch('/api/auth/refresh-token', {
-      method: 'POST',
-      body: { refreshToken },
-      skipAuth: true
-    });
-
-    if (response.success) {
-      const { tokens } = response.data;
-      setTokens(tokens.accessToken, tokens.refreshToken);
-      return tokens.accessToken;
-    } else {
-      throw new Error(response.error?.message || 'Token refresh failed');
-    }
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    // If refresh fails, logout user
-    await logout();
-    throw error;
-  }
-};
-
 // Logout
 export const logout = async () => {
   try {
-    const { accessToken } = getStoredTokens();
+    const accessToken = getAccessToken();
     if (accessToken) {
       // Call logout endpoint (optional, for server-side cleanup)
       await apiFetch('/api/auth/logout', {
@@ -176,12 +88,7 @@ export const logout = async () => {
     // Continue with local logout even if API fails
   } finally {
     // Clear all stored data
-    cachedUser = null;
-    cachedAccessToken = null;
-    clearStoredTokens();
-    
-    // Broadcast auth change event
-    window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: null } }));
+    clearTokens();
   }
 };
 
@@ -445,7 +352,7 @@ export const getUserStats = async () => {
 
 // Check authentication status
 export const isAuthenticated = () => {
-  const { accessToken } = getStoredTokens();
+  const accessToken = getAccessToken();
   return !!accessToken;
 };
 
@@ -457,16 +364,5 @@ export const isAuthenticatedAsync = async () => {
 
 // Synchronous current user getter
 export const getCurrentUserSync = () => {
-  if (cachedUser) return cachedUser;
-  
-  const storedUser = localStorage.getItem(STORAGE_KEYS.user);
-  if (storedUser) {
-    try {
-      return JSON.parse(storedUser);
-    } catch (error) {
-      return null;
-    }
-  }
-  
-  return null;
+  return getCurrentUser();
 };

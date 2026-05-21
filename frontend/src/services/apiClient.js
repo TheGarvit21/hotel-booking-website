@@ -1,22 +1,9 @@
 // API client with automatic authentication handling
-import { getAccessToken, refreshAccessToken } from '../utils/auth.js';
+import { getAccessToken, refreshAccessToken, isTokenExpired } from '../utils/tokenManager.js';
 
 const DEFAULTS = {
     baseURL: import.meta.env.VITE_API_BASE || 'http://localhost:5000',
     headers: { 'Content-Type': 'application/json' },
-};
-
-// Check if token is expired
-const isTokenExpired = (token) => {
-  if (!token) return true;
-  
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const currentTime = Math.floor(Date.now() / 1000);
-    return payload.exp < currentTime;
-  } catch (error) {
-    return true;
-  }
 };
 
 // Main API fetch function with automatic token handling
