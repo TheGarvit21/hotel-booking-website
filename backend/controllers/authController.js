@@ -100,8 +100,17 @@ const register = async (req, res) => {
       });
     }
 
+    if (error.code === 11000) {
+      return res.status(400).json({
+        error: { message: 'User with this email already exists' }
+      });
+    }
+
     res.status(500).json({
-      error: { message: 'Registration failed' }
+      error: { 
+        message: 'Registration failed',
+        details: error.message
+      }
     });
   }
 };
@@ -211,7 +220,10 @@ const login = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({
-      error: { message: 'Login failed' }
+      error: { 
+        message: 'Login failed',
+        details: error.message
+      }
     });
   }
 };
@@ -285,7 +297,10 @@ const refreshToken = async (req, res) => {
   } catch (error) {
     console.error('Token refresh error:', error);
     res.status(500).json({
-      error: { message: 'Token refresh failed' }
+      error: { 
+        message: 'Token refresh failed',
+        details: error.message
+      }
     });
   }
 };
@@ -317,7 +332,10 @@ const logout = async (req, res) => {
   } catch (error) {
     console.error('Logout error:', error);
     res.status(500).json({
-      error: { message: 'Logout failed' }
+      error: { 
+        message: 'Logout failed',
+        details: error.message
+      }
     });
   }
 };
