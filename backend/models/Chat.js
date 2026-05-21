@@ -71,8 +71,6 @@ const chatSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for faster queries
-chatSchema.index({ userId: 1 });
 chatSchema.index({ lastMessageTime: -1 });
 
 const Chat = mongoose.model('Chat', chatSchema);

@@ -65,8 +65,19 @@ app.use(cookieParser());
 
 // MongoDB connection
 mongoose.connect(config.mongoUri)
-  .then(() => {
+  .then(async () => {
     console.log('Connected to MongoDB');
+    
+    // Automatically drop the deprecated unique username index if it exists
+    try {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      if (collections.some(c => c.name === 'users')) {
+        await mongoose.connection.db.collection('users').dropIndex('username_1');
+        console.log('Successfully dropped deprecated username_1 unique index');
+      }
+    } catch (err) {
+      console.log('Note: username_1 unique index was not found or already dropped');
+    }
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err);
